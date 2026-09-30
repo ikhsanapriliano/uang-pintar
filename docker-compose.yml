@@ -1,0 +1,26 @@
+version: "3"
+
+services:
+  uang-pintar-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: uangpintar/uang-pintar-web:1.0.0
+    container_name: uang-pintar-web
+    command: npm start
+    ports:
+      - "4120:3000"
+    environment:
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      DATABASE_URL: ${DATABASE_URL}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      AWS_BUCKET: ${AWS_BUCKET}
+    networks:
+      - global
+
+networks:
+  global:
+    external:
+      name: uang-pintar-network

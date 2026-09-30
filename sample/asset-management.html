@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ledgerkeep — Manajemen Aset</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#182129;
+    --ink-soft:#4b5560;
+    --paper:#F3F2EE;
+    --surface:#FFFFFF;
+    --line:#DCD9D0;
+    --ledger:#2F6F4E;
+    --ledger-deep:#1E4E35;
+    --ledger-tint:#E4EEE7;
+    --amber:#9A5B12;
+    --amber-tint:#F5E9D8;
+    --rust:#A23B2E;
+    --rust-tint:#F5E1DD;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    font-variant-numeric:tabular-nums;
+  }
+  #app{display:flex;min-height:100vh;}
+  ::selection{background:var(--ledger-tint);}
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width:220px;flex-shrink:0;background:var(--ink);color:#EDEAE2;
+    display:flex;flex-direction:column;padding:22px 14px;position:sticky;top:0;height:100vh;
+  }
+  .brand{display:flex;align-items:center;gap:9px;padding:0 8px 22px 8px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:16px;}
+  .brand .mark{width:30px;height:30px;border-radius:7px;background:var(--ledger);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-weight:700;color:#fff;font-size:14px;flex-shrink:0;}
+  .brand .word{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15.5px;letter-spacing:.01em;}
+  .brand .sub{font-size:10.5px;color:#9AA5A0;margin-top:1px;}
+  .nav{display:flex;flex-direction:column;gap:2px;flex:1;}
+  .nav button{
+    all:unset;display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:8px;
+    font-size:13.5px;font-weight:500;color:#C8C4B8;cursor:pointer;transition:background .12s,color .12s;
+  }
+  .nav button .ico{width:17px;text-align:center;font-size:14px;opacity:.85;}
+  .nav button:hover{background:rgba(255,255,255,.06);color:#fff;}
+  .nav button.active{background:var(--ledger);color:#fff;}
+  .nav .divider{height:1px;background:rgba(255,255,255,.1);margin:10px 4px;}
+  .side-foot{padding-top:12px;border-top:1px solid rgba(255,255,255,.1);}
+  .mode-pill{display:flex;align-items:center;justify-content:space-between;gap:8px;background:rgba(255,255,255,.06);border-radius:8px;padding:8px 10px;font-size:12px;}
+  .mode-pill .tag{font-weight:600;font-family:'Space Grotesk',sans-serif;}
+  .mode-pill .tag.admin{color:#8FD9AE;}
+  .mode-pill .tag.user{color:#C8C4B8;}
+  .mode-pill button{all:unset;font-size:11px;color:#EDEAE2;text-decoration:underline;cursor:pointer;opacity:.8;}
+  .mode-pill button:hover{opacity:1;}
+
+  /* ---------- Main ---------- */
+  .main{flex:1;min-width:0;padding:26px 34px 60px 34px;}
+  .topline{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px;gap:16px;flex-wrap:wrap;}
+  .topline h1{font-family:'Space Grotesk',sans-serif;font-size:22px;margin:0 0 4px 0;letter-spacing:-.01em;}
+  .topline p{margin:0;color:var(--ink-soft);font-size:13px;}
+  .toast{position:fixed;bottom:22px;right:22px;background:var(--ink);color:#fff;padding:11px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:999;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;}
+  .toast.show{opacity:1;transform:translateY(0);}
+
+  /* ---------- Cards / grid ---------- */
+  .grid{display:grid;gap:16px;}
+  .grid-4{grid-template-columns:repeat(4,1fr);}
+  .grid-2{grid-template-columns:1.3fr 1fr;}
+  @media(max-width:1000px){.grid-4{grid-template-columns:repeat(2,1fr);} .grid-2{grid-template-columns:1fr;}}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;position:relative;overflow:hidden;}
+  .stat .eyebrow{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);font-weight:600;}
+  .stat .value{font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:600;margin-top:6px;letter-spacing:-.01em;}
+  .stat .foot{font-size:11.5px;color:var(--ink-soft);margin-top:4px;}
+  .stat.accent{border-color:var(--ledger);}
+  .stat.accent::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--ledger);}
+  .card h3{font-family:'Space Grotesk',sans-serif;font-size:14.5px;margin:0 0 12px 0;display:flex;align-items:center;justify-content:space-between;}
+  .card h3 .muted{font-size:11.5px;color:var(--ink-soft);font-weight:500;}
+
+  .loc-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:13px;}
+  .loc-row:last-child{border-bottom:none;}
+  .loc-row .dot{width:8px;height:8px;border-radius:50%;background:var(--ledger);flex-shrink:0;}
+  .loc-row .name{flex:1;font-weight:500;}
+  .loc-row .count{color:var(--ink-soft);font-size:12px;}
+  .loc-row .val{font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;}
+
+  /* ---------- Buttons ---------- */
+  .btn{font-family:'Inter',sans-serif;font-size:13px;font-weight:600;border-radius:7px;padding:9px 14px;border:1px solid transparent;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:filter .12s,transform .05s;}
+  .btn:active{transform:scale(.98);}
+  .btn-primary{background:var(--ledger);color:#fff;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-outline{background:#fff;color:var(--ink);border-color:var(--line);}
+  .btn-outline:hover{border-color:var(--ink);}
+  .btn-ghost{background:transparent;color:var(--ink-soft);border-color:transparent;padding:8px 10px;}
+  .btn-ghost:hover{color:var(--ink);background:rgba(0,0,0,.04);}
+  .btn-danger{background:#fff;color:var(--rust);border-color:var(--rust);}
+  .btn-danger:hover{background:var(--rust-tint);}
+  .btn-sm{padding:6px 10px;font-size:12px;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+
+  /* ---------- Toolbar / filters ---------- */
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+  input[type=text],input[type=number],input[type=date],select,textarea{
+    font-family:'Inter',sans-serif;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);
+  }
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--ledger);outline-offset:1px;border-color:var(--ledger);}
+  .search-input{min-width:220px;}
+  label.field{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;color:var(--ink-soft);}
+  label.field input,label.field select,label.field textarea{font-weight:400;color:var(--ink);}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:640px){.form-grid{grid-template-columns:1fr;}}
+
+  /* ---------- Table ---------- */
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);font-weight:600;padding:0 10px 10px 10px;border-bottom:1px solid var(--line);}
+  tbody td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tbody tr:hover{background:rgba(47,111,78,.04);cursor:pointer;}
+  .code-chip{font-family:'IBM Plex Mono',monospace;font-size:11.5px;background:var(--paper);border:1px solid var(--line);border-radius:5px;padding:2px 6px;}
+  .badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;}
+  .badge-good{background:var(--ledger-tint);color:var(--ledger-deep);}
+  .badge-light{background:var(--amber-tint);color:var(--amber);}
+  .badge-heavy{background:var(--rust-tint);color:var(--rust);}
+  .badge-repair{background:#E3E7F5;color:#3A4E9C;}
+  .badge-disposed{background:#EDEBE5;color:#7A7568;}
+  .empty{padding:60px 20px;text-align:center;color:var(--ink-soft);}
+  .empty .big{font-family:'Space Grotesk',sans-serif;font-size:16px;color:var(--ink);margin-bottom:6px;}
+
+  /* ---------- Modal ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(24,33,41,.5);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;z-index:200;}
+  .modal{background:#fff;border-radius:12px;max-width:640px;width:100%;padding:24px 26px;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+  .modal.wide{max-width:820px;}
+  .modal-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;}
+  .modal-head h2{font-family:'Space Grotesk',sans-serif;font-size:18px;margin:0;}
+  .modal-head .x{all:unset;cursor:pointer;color:var(--ink-soft);font-size:20px;line-height:1;padding:4px;}
+  .modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line);}
+
+  /* ---------- Asset detail card ---------- */
+  .ledger-card{border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+  .ledger-head{background:var(--ink);color:#fff;padding:16px 18px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px;}
+  .ledger-head .code{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8FD9AE;letter-spacing:.03em;}
+  .ledger-head .name{font-family:'Space Grotesk',sans-serif;font-size:17px;margin-top:2px;}
+  .ledger-body{padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:14px 22px;}
+  @media(max-width:600px){.ledger-body{grid-template-columns:1fr;}}
+  .kv .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);font-weight:600;}
+  .kv .v{font-size:13.5px;margin-top:3px;}
+  .kv .v.mono{font-family:'IBM Plex Mono',monospace;}
+  .nbv-strip{background:var(--ledger-tint);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:14px 18px;display:flex;gap:26px;flex-wrap:wrap;}
+  .nbv-strip .item .k{font-size:10.5px;color:var(--ledger-deep);text-transform:uppercase;letter-spacing:.06em;font-weight:700;}
+  .nbv-strip .item .v{font-family:'Space Grotesk',sans-serif;font-size:18px;color:var(--ledger-deep);margin-top:2px;}
+
+  .qr-box{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;border-left:1px dashed var(--line);}
+  .tabs-mini{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:16px 18px 0 18px;}
+  .tabs-mini button{all:unset;padding:9px 12px;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+  .tabs-mini button.active{color:var(--ledger-deep);border-bottom-color:var(--ledger);}
+  .log-list{padding:14px 18px 18px 18px;display:flex;flex-direction:column;gap:10px;max-height:260px;overflow:auto;}
+  .log-item{border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px;}
+  .log-item .top{display:flex;justify-content:space-between;color:var(--ink-soft);font-size:11px;margin-bottom:3px;}
+  .action-row{display:flex;gap:8px;flex-wrap:wrap;padding:0 18px 18px 18px;}
+
+  .pill-tag{display:inline-block;font-size:11px;background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:2px 9px;margin:2px 4px 0 0;color:var(--ink-soft);}
+
+  .kpi-strip{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:16px;}
+  .kpi-strip .kpi{flex:1;min-width:150px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
+  .kpi .k{font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;font-weight:600;}
+  .kpi .v{font-family:'Space Grotesk',sans-serif;font-size:19px;margin-top:4px;}
+
+  .drop{border:1.5px dashed var(--line);border-radius:10px;padding:26px;text-align:center;color:var(--ink-soft);font-size:13px;cursor:pointer;transition:border-color .15s,background .15s;}
+  .drop.drag{border-color:var(--ledger);background:var(--ledger-tint);}
+  .preview-wrap{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:14px;}
+
+  .scan-video{width:100%;max-width:360px;border-radius:10px;background:#000;}
+  .scan-frame{position:relative;display:inline-block;}
+  .note{font-size:12px;color:var(--ink-soft);background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:10px 12px;}
+  .note.warn{background:var(--amber-tint);border-color:#E7CFA5;color:#7A4A0C;}
+
+  #print-area{display:none;}
+  @media print{
+    body *{visibility:hidden;}
+    #print-area, #print-area *{visibility:visible;}
+    #print-area{display:block;position:absolute;top:0;left:0;width:100%;padding:20px;}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast"></div>
+<div id="print-area"></div>
+
+<script>
+/* =========================================================
+   DATA LAYER
+   ========================================================= */
+const STORE_ASSETS = 'assets-v1';
+const STORE_META   = 'meta-v1';
+
+function defaultMeta(){
+  return {
+    locations: ['Kantor Pusat','Kantor Cabang 1','Kantor Cabang 2'],
+    categories: ['Elektronik','Furnitur','Kendaraan','Peralatan Kantor','Mesin','Lainnya'],
+    nextSeq: 1,
+    adminPin: '1234'
+  };
+}
+
+let DB = { assets: [], meta: defaultMeta() };
+let isAdmin = false;
+let storageOK = true;
+
+async function loadDB(){
+  try{
+    const a = await window.storage.get(STORE_ASSETS, true);
+    DB.assets = a && a.value ? JSON.parse(a.value) : [];
+  }catch(e){ DB.assets = []; }
+  try{
+    const m = await window.storage.get(STORE_META, true);
+    DB.meta = m && m.value ? JSON.parse(m.value) : defaultMeta();
+  }catch(e){ DB.meta = defaultMeta(); }
+}
+async function saveAssets(){
+  try{
+    const r = await window.storage.set(STORE_ASSETS, JSON.stringify(DB.assets), true);
+    if(!r){ storageOK=false; showToast('Gagal menyimpan ke penyimpanan bersama — cek koneksi.'); }
+  }catch(e){ storageOK=false; showToast('Gagal menyimpan data.'); }
+}
+async function saveMeta(){
+  try{ await window.storage.set(STORE_META, JSON.stringify(DB.meta), true); }
+  catch(e){ showToast('Gagal menyimpan pengaturan.'); }
+}
+
+function genCode(){
+  const year = new Date().getFullYear();
+  const seq = String(DB.meta.nextSeq).padStart(4,'0');
+  DB.meta.nextSeq += 1;
+  return `AST-${year}-${seq}`;
+}
+
+/* =========================================================
+   UTILS
+   ========================================================= */
+function uid(){ return 'id-'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+function fmtIDR(n){
+  n = Number(n)||0;
+  return 'Rp' + n.toLocaleString('id-ID',{maximumFractionDigits:0});
+}
+function fmtDate(d){
+  if(!d) return '-';
+  const dt = new Date(d);
+  if(isNaN(dt)) return d;
+  return dt.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function monthsElapsed(fromDate, toDate){
+  const a = new Date(fromDate), b = new Date(toDate);
+  if(isNaN(a)||isNaN(b)) return 0;
+  let m = (b.getFullYear()-a.getFullYear())*12 + (b.getMonth()-a.getMonth());
+  if(b.getDate() < a.getDate()) m -= 1;
+  return Math.max(0, m);
+}
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window.__toastT);
+  window.__toastT = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---- Depreciation engine ---- */
+function computeNBV(asset, asOf){
+  asOf = asOf || new Date();
+  const cost = Number(asset.acquisitionPrice)||0;
+  const salvage = Number(asset.salvageValue)||0;
+  const lifeYears = Number(asset.usefulLifeYears)||4;
+  const lifeMonths = Math.max(1, Math.round(lifeYears*12));
+  const asOfDate = asset.status==='disposed' ? new Date(asset.disposalDate||asOf) : asOf;
+  let elapsed = monthsElapsed(asset.acquisitionDate, asOfDate);
+  elapsed = Math.min(elapsed, lifeMonths);
+
+  let nbv, accum;
+  if(asset.depreciationMethod === 'declining_balance'){
+    const monthlyRate = Math.min(1, (2/lifeYears)/12);
+    let bv = cost;
+    for(let i=0;i<elapsed;i++){
+      let dep = bv*monthlyRate;
+      if(bv-dep < salvage) dep = bv-salvage;
+      bv -= dep;
+      if(bv <= salvage){ bv = salvage; break; }
+    }
+    nbv = Math.max(bv, salvage);
+    accum = cost - nbv;
+  } else {
+    const monthlyDep = lifeMonths>0 ? (cost-salvage)/lifeMonths : 0;
+    accum = Math.min(monthlyDep*elapsed, cost-salvage);
+    nbv = Math.max(cost-accum, salvage);
+  }
+  return { nbv: round2(nbv), accum: round2(accum) };
+}
+function round2(n){ return Math.round((n+Number.EPSILON)*100)/100; }
+
+function activeAssets(){ return DB.assets.filter(a=>a.status!=='disposed'); }
+function assetByCode(code){ return DB.assets.find(a=>a.code===String(code).trim().toUpperCase()); }
+
+/* =========================================================
+   ROUTER / STATE
+   ========================================================= */
+let route = 'dashboard';
+let listFilter = { q:'', category:'', location:'', status:'active' };
+let reportFilter = { category:'', location:'', tag:'', year:'', status:'active' };
+let selectedAssetId = null;
+let scanStream = null, scanRAF = null;
+
+function setRoute(r){
+  route = r;
+  stopScanner();
+  render();
+}
+
+/* =========================================================
+   RENDER: SHELL
+   ========================================================= */
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    ${renderSidebar()}
+    <div class="main">
+      ${renderTop()}
+      <div id="view">${renderView()}</div>
+    </div>
+  `;
+  bindGlobalEvents();
+  afterRenderHook();
+}
+
+function renderSidebar(){
+  const items = [
+    {id:'dashboard', label:'Dashboard', ico:'◆'},
+    {id:'assets', label:'Daftar Aset', ico:'☰'},
+    {id:'import', label:'Import Excel', ico:'⇩'},
+    {id:'scan', label:'Scan / Cari QR', ico:'▣'},
+    {id:'reports', label:'Laporan', ico:'▤'},
+    {id:'settings', label:'Pengaturan', ico:'⚙'},
+  ];
+  return `
+  <div class="sidebar">
+    <div class="brand">
+      <div class="mark">LK</div>
+      <div>
+        <div class="word">Ledgerkeep</div>
+        <div class="sub">Manajemen Aset · 3 Kantor</div>
+      </div>
+    </div>
+    <div class="nav">
+      ${items.map(it=>`<button data-route="${it.id}" class="${route===it.id?'active':''}"><span class="ico">${it.ico}</span>${it.label}</button>`).join('')}
+    </div>
+    <div class="side-foot">
+      <div class="mode-pill">
+        <div>
+          <div class="tag ${isAdmin?'admin':'user'}">${isAdmin?'Mode Admin':'Mode Staf'}</div>
+        </div>
+        <button id="toggleModeBtn">${isAdmin?'Keluar':'Masuk admin'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderTop(){
+  const titles = {
+    dashboard:['Dashboard','Ringkasan posisi dan nilai aset di seluruh kantor'],
+    assets:['Daftar Aset','Semua aset tercatat, bisa dicari dan difilter'],
+    import:['Import dari Excel','Unggah data aset massal dari file .xlsx / .csv'],
+    scan:['Scan / Cari QR','Pindai kode QR aset atau cari kode secara manual'],
+    reports:['Laporan','Susun laporan aset untuk keuangan, audit, atau presentasi'],
+    settings:['Pengaturan','Kategori, lokasi kantor, dan cadangan data'],
+  };
+  const [t,s] = titles[route] || ['','']
+  return `<div class="topline"><div><h1>${t}</h1><p>${s}</p></div></div>`;
+}
+
+function renderView(){
+  if(route==='dashboard') return viewDashboard();
+  if(route==='assets') return viewAssets();
+  if(route==='import') return viewImport();
+  if(route==='scan') return viewScan();
+  if(route==='reports') return viewReports();
+  if(route==='settings') return viewSettings();
+  return '';
+}
+
+/* =========================================================
+   VIEW: DASHBOARD
+   ========================================================= */
+function viewDashboard(){
+  const active = activeAssets();
+  const totalCount = active.length;
+  let totalNBV=0, totalCost=0;
+  active.forEach(a=>{ const {nbv} = computeNBV(a); totalNBV+=nbv; totalCost += Number(a.acquisitionPrice)||0; });
+
+  const byLoc = {};
+  DB.meta.locations.forEach(l=> byLoc[l] = {count:0, val:0});
+  active.forEach(a=>{
+    if(!byLoc[a.location]) byLoc[a.location] = {count:0,val:0};
+    const {nbv} = computeNBV(a);
+    byLoc[a.location].count += 1;
+    byLoc[a.location].val += nbv;
+  });
+
+  const disposedCount = DB.assets.filter(a=>a.status==='disposed').length;
+
+  if(DB.assets.length===0){
+    return `
+    <div class="empty card">
+      <div class="big">Belum ada aset tercatat</div>
+      <p>Mulai dengan menambahkan aset satu per satu, atau import sekaligus dari file Excel.</p>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:14px;">
+        <button class="btn btn-primary" data-route="assets" data-action="new-asset">+ Tambah aset</button>
+        <button class="btn btn-outline" data-route="import">Import Excel</button>
+      </div>
+    </div>`;
+  }
+
+  return `
+  <div class="grid grid-4" style="margin-bottom:16px;">
+    <div class="stat accent">
+      <div class="eyebrow">Total aset aktif</div>
+      <div class="value">${totalCount}</div>
+      <div class="foot">${disposedCount} aset telah dihapusbukukan</div>
+    </div>
+    <div class="stat">
+      <div class="eyebrow">Total nilai buku (NBV)</div>
+      <div class="value">${fmtIDR(totalNBV)}</div>
+      <div class="foot">dari harga perolehan ${fmtIDR(totalCost)}</div>
+    </div>
+    <div class="stat">
+      <div class="eyebrow">Akumulasi penyusutan</div>
+      <div class="value">${fmtIDR(totalCost-totalNBV)}</div>
+      <div class="foot">${totalCost>0? Math.round((totalCost-totalNBV)/totalCost*100):0}% dari nilai perolehan</div>
+    </div>
+    <div class="stat">
+      <div class="eyebrow">Jumlah kantor</div>
+      <div class="value">${DB.meta.locations.length}</div>
+      <div class="foot">lokasi terdaftar</div>
+    </div>
+  </div>
+
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>Nilai aset per kantor <span class="muted">berbasis NBV</span></h3>
+      <canvas id="chartLoc" height="190"></canvas>
+    </div>
+    <div class="card">
+      <h3>Rincian per lokasi</h3>
+      ${Object.entries(byLoc).map(([loc,d])=>`
+        <div class="loc-row">
+          <div class="dot"></div>
+          <div class="name">${esc(loc)}</div>
+          <div class="count">${d.count} aset</div>
+          <div class="val">${fmtIDR(d.val)}</div>
+        </div>
+      `).join('') || '<p class="note">Belum ada lokasi.</p>'}
+    </div>
+  </div>
+  `;
+}
+
+function afterRenderHook(){
+  if(route==='dashboard' && DB.assets.length>0 && window.Chart){
+    const active = activeAssets();
+    const byLoc = {};
+    DB.meta.locations.forEach(l=> byLoc[l]=0);
+    active.forEach(a=>{ byLoc[a.location] = (byLoc[a.location]||0) + computeNBV(a).nbv; });
+    const ctx = document.getElementById('chartLoc');
+    if(ctx){
+      new Chart(ctx, {
+        type:'bar',
+        data:{
+          labels:Object.keys(byLoc),
+          datasets:[{
+            label:'Nilai buku (NBV)',
+            data:Object.values(byLoc),
+            backgroundColor:'#2F6F4E',
+            borderRadius:6,
+            maxBarThickness:56
+          }]
+        },
+        options:{
+          responsive:true,
+          plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>fmtIDR(c.raw)}}},
+          scales:{ y:{ ticks:{ callback:v=>'Rp'+(v/1e6).toFixed(0)+'jt' }, grid:{color:'#EDEBE5'} }, x:{grid:{display:false}} }
+        }
+      });
+    }
+  }
+  if(route==='scan'){ /* handled by explicit start button */ }
+}
+
+/* =========================================================
+   VIEW: ASSET LIST
+   ========================================================= */
+function filteredAssets(){
+  return DB.assets.filter(a=>{
+    if(listFilter.status==='active' && a.status==='disposed') return false;
+    if(listFilter.status==='disposed' && a.status!=='disposed') return false;
+    if(listFilter.category && a.category!==listFilter.category) return false;
+    if(listFilter.location && a.location!==listFilter.location) return false;
+    if(listFilter.q){
+      const q = listFilter.q.toLowerCase();
+      if(!(a.name.toLowerCase().includes(q) || a.code.toLowerCase().includes(q) || (a.owner||'').toLowerCase().includes(q))) return false;
+    }
+    return true;
+  }).sort((x,y)=> (y.createdAt||'').localeCompare(x.createdAt||''));
+}
+
+function viewAssets(){
+  const rows = filteredAssets();
+  return `
+  <div class="toolbar">
+    <input type="text" class="search-input" id="fQ" placeholder="Cari nama, kode, atau penanggung jawab..." value="${esc(listFilter.q)}">
+    <select id="fCategory"><option value="">Semua kategori</option>${DB.meta.categories.map(c=>`<option ${listFilter.category===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
+    <select id="fLocation"><option value="">Semua lokasi</option>${DB.meta.locations.map(l=>`<option ${listFilter.location===l?'selected':''}>${esc(l)}</option>`).join('')}</select>
+    <select id="fStatus">
+      <option value="active" ${listFilter.status==='active'?'selected':''}>Aktif</option>
+      <option value="disposed" ${listFilter.status==='disposed'?'selected':''}>Sudah dihapusbukukan</option>
+      <option value="all" ${listFilter.status==='all'?'selected':''}>Semua</option>
+    </select>
+    <div style="flex:1"></div>
+    ${isAdmin? `<button class="btn btn-primary" id="btnNewAsset">+ Tambah aset</button>` : ''}
+  </div>
+
+  <div class="card" style="padding:0;overflow:auto;">
+    ${rows.length===0 ? `<div class="empty"><div class="big">Tidak ada aset yang cocok</div><p>Coba ubah filter, atau tambahkan aset baru.</p></div>` : `
+    <table>
+      <thead><tr>
+        <th>Kode</th><th>Nama aset</th><th>Kategori</th><th>Lokasi</th><th>Kondisi</th><th>Status</th><th style="text-align:right;">Nilai buku</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(a=>{
+          const {nbv} = computeNBV(a);
+          return `<tr data-open="${a.id}">
+            <td><span class="code-chip">${esc(a.code)}</span></td>
+            <td>${esc(a.name)}</td>
+            <td>${esc(a.category)}</td>
+            <td>${esc(a.location)}</td>
+            <td>${conditionBadge(a.condition)}</td>
+            <td>${a.status==='disposed'? `<span class="badge badge-disposed">Dihapusbukukan</span>` : `<span class="badge badge-good">Aktif</span>`}</td>
+            <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmtIDR(nbv)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`}
+  </div>
+  `;
+}
+function conditionBadge(c){
+  const map = {
+    baik:['badge-good','Baik'],
+    rusak_ringan:['badge-light','Rusak ringan'],
+    rusak_berat:['badge-heavy','Rusak berat'],
+    diperbaiki:['badge-repair','Diperbaiki']
+  };
+  const v = map[c] || ['badge-good','Baik'];
+  return `<span class="badge ${v[0]}">${v[1]}</span>`;
+}
+
+/* =========================================================
+   ASSET FORM (add / edit) — admin only
+   ========================================================= */
+function assetFormHTML(asset){
+  const a = asset || {name:'',category:DB.meta.categories[0]||'',location:DB.meta.locations[0]||'',acquisitionDate:todayISO(),acquisitionPrice:'',owner:'',depreciationMethod:'straight_line',usefulLifeYears:4,salvageValue:0,tags:''};
+  return `
+  <div class="form-grid">
+    <label class="field">Nama aset<input type="text" id="fName" value="${esc(a.name)}" placeholder="mis. Laptop Dell Latitude 5440"></label>
+    <label class="field">Kategori
+      <select id="fCat">${DB.meta.categories.map(c=>`<option ${a.category===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
+    </label>
+    <label class="field">Lokasi / kantor
+      <select id="fLoc">${DB.meta.locations.map(l=>`<option ${a.location===l?'selected':''}>${esc(l)}</option>`).join('')}</select>
+    </label>
+    <label class="field">Penanggung jawab<input type="text" id="fOwner" value="${esc(a.owner)}" placeholder="Nama karyawan / divisi"></label>
+    <label class="field">Tanggal perolehan<input type="date" id="fDate" value="${a.acquisitionDate||todayISO()}"></label>
+    <label class="field">Harga perolehan (Rp)<input type="number" id="fPrice" value="${a.acquisitionPrice}" min="0" placeholder="0"></label>
+    <label class="field">Metode penyusutan
+      <select id="fMethod">
+        <option value="straight_line" ${a.depreciationMethod==='straight_line'?'selected':''}>Garis lurus (Straight Line)</option>
+        <option value="declining_balance" ${a.depreciationMethod==='declining_balance'?'selected':''}>Saldo menurun (Declining Balance)</option>
+      </select>
+    </label>
+    <label class="field">Masa manfaat (tahun)<input type="number" id="fLife" value="${a.usefulLifeYears}" min="1" step="0.5"></label>
+    <label class="field">Nilai residu (Rp)<input type="number" id="fSalvage" value="${a.salvageValue||0}" min="0"></label>
+    <label class="field">Tag (pisahkan koma)<input type="text" id="fTags" value="${esc(a.tags||'')}" placeholder="mis. IT, prioritas"></label>
+  </div>
+  `;
+}
+
+function openAssetForm(id){
+  const asset = id ? DB.assets.find(x=>x.id===id) : null;
+  openModal(`
+    <div class="modal-head"><h2>${asset? 'Ubah aset':'Tambah aset baru'}</h2><button class="x" data-close>&times;</button></div>
+    <div id="assetFormBody">${assetFormHTML(asset)}</div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-close>Batal</button>
+      <button class="btn btn-primary" id="saveAssetBtn" data-id="${asset?asset.id:''}">${asset?'Simpan perubahan':'Simpan aset'}</button>
+    </div>
+  `);
+}
+
+function collectAssetForm(){
+  return {
+    name: document.getElementById('fName').value.trim(),
+    category: document.getElementById('fCat').value,
+    location: document.getElementById('fLoc').value,
+    owner: document.getElementById('fOwner').value.trim(),
+    acquisitionDate: document.getElementById('fDate').value,
+    acquisitionPrice: Number(document.getElementById('fPrice').value)||0,
+    depreciationMethod: document.getElementById('fMethod').value,
+    usefulLifeYears: Number(document.getElementById('fLife').value)||4,
+    salvageValue: Number(document.getElementById('fSalvage').value)||0,
+    tags: document.getElementById('fTags').value.trim(),
+  };
+}
+
+async function saveAssetFromForm(id){
+  const data = collectAssetForm();
+  if(!data.name){ showToast('Nama aset wajib diisi.'); return; }
+  if(id){
+    const idx = DB.assets.findIndex(x=>x.id===id);
+    if(idx>-1){ DB.assets[idx] = {...DB.assets[idx], ...data}; }
+    showToast('Perubahan aset disimpan.');
+  } else {
+    const asset = {
+      id: uid(),
+      code: genCode(),
+      ...data,
+      status:'active',
+      condition:'baik',
+      usageLog:[], conditionLog:[], transferLog:[],
+      createdAt: new Date().toISOString()
+    };
+    DB.assets.push(asset);
+    await saveMeta();
+    showToast(`Aset ditambahkan dengan kode ${asset.code}.`);
+  }
+  await saveAssets();
+  closeModal();
+  render();
+}
+
+/* =========================================================
+   ASSET DETAIL MODAL
+   ========================================================= */
+let detailTab = 'info';
+function openAssetDetail(id){
+  detailTab = 'info';
+  selectedAssetId = id;
+  renderAssetDetailModal();
+}
+function renderAssetDetailModal(){
+  const a = DB.assets.find(x=>x.id===selectedAssetId);
+  if(!a) return;
+  const {nbv, accum} = computeNBV(a);
+  const tags = (a.tags||'').split(',').map(t=>t.trim()).filter(Boolean);
+
+  openModal(`
+    <div class="ledger-card" style="border:none;">
+      <div class="ledger-head">
+        <div>
+          <div class="code">${esc(a.code)}</div>
+          <div class="name">${esc(a.name)}</div>
+        </div>
+        <button class="x" data-close style="color:#fff;">&times;</button>
+      </div>
+      <div style="display:flex;">
+        <div style="flex:1;">
+          <div class="ledger-body">
+            <div class="kv"><div class="k">Kategori</div><div class="v">${esc(a.category)}</div></div>
+            <div class="kv"><div class="k">Lokasi</div><div class="v">${esc(a.location)}</div></div>
+            <div class="kv"><div class="k">Penanggung jawab</div><div class="v">${esc(a.owner)||'-'}</div></div>
+            <div class="kv"><div class="k">Status</div><div class="v">${a.status==='disposed'?conditionDisposedText(a):conditionBadge(a.condition)}</div></div>
+            <div class="kv"><div class="k">Tanggal perolehan</div><div class="v mono">${fmtDate(a.acquisitionDate)}</div></div>
+            <div class="kv"><div class="k">Harga perolehan</div><div class="v mono">${fmtIDR(a.acquisitionPrice)}</div></div>
+            <div class="kv"><div class="k">Metode penyusutan</div><div class="v">${a.depreciationMethod==='declining_balance'?'Saldo menurun':'Garis lurus'} · ${a.usefulLifeYears} th</div></div>
+            <div class="kv"><div class="k">Nilai residu</div><div class="v mono">${fmtIDR(a.salvageValue||0)}</div></div>
+          </div>
+          ${tags.length? `<div style="padding:0 18px 14px 18px;">${tags.map(t=>`<span class="pill-tag">#${esc(t)}</span>`).join('')}</div>`:''}
+        </div>
+        <div class="qr-box">
+          <div id="qrHolder"></div>
+          <button class="btn btn-outline btn-sm" id="dlQr">Unduh QR</button>
+        </div>
+      </div>
+      <div class="nbv-strip">
+        <div class="item"><div class="k">Nilai buku (NBV)</div><div class="v">${fmtIDR(nbv)}</div></div>
+        <div class="item"><div class="k">Akumulasi penyusutan</div><div class="v">${fmtIDR(accum)}</div></div>
+      </div>
+
+      <div class="tabs-mini">
+        <button data-dtab="info" class="${detailTab==='info'?'active':''}">Aksi</button>
+        <button data-dtab="usage" class="${detailTab==='usage'?'active':''}">Riwayat pemakaian (${a.usageLog.length})</button>
+        <button data-dtab="condition" class="${detailTab==='condition'?'active':''}">Riwayat kondisi (${a.conditionLog.length})</button>
+        <button data-dtab="transfer" class="${detailTab==='transfer'?'active':''}">Riwayat mutasi (${a.transferLog.length})</button>
+      </div>
+      ${renderDetailTabBody(a)}
+    </div>
+  `, 'wide');
+
+  setTimeout(()=>{
+    const holder = document.getElementById('qrHolder');
+    if(holder && window.QRCode){
+      holder.innerHTML='';
+      new QRCode(holder, { text: 'ASSET:'+a.code, width:110, height:110, colorDark:'#182129', colorLight:'#ffffff' });
+    }
+  }, 30);
+}
+function conditionDisposedText(a){
+  return `<span class="badge badge-disposed">Dihapusbukukan · ${fmtDate(a.disposalDate)}</span>`;
+}
+
+function renderDetailTabBody(a){
+  if(detailTab==='usage'){
+    return `<div class="log-list">
+      ${a.usageLog.length? a.usageLog.slice().reverse().map(l=>`
+        <div class="log-item"><div class="top"><span>${fmtDate(l.date)}</span><span>oleh ${esc(l.responsible)}</span></div>
+        <b>${esc(l.event)}</b></div>`).join('') : `<p class="note">Belum ada riwayat pemakaian.</p>`}
+    </div>
+    <div class="action-row">
+      <button class="btn btn-primary btn-sm" data-action="add-usage">+ Tambah status penggunaan</button>
+    </div>`;
+  }
+  if(detailTab==='condition'){
+    return `<div class="log-list">
+      ${a.conditionLog.length? a.conditionLog.slice().reverse().map(l=>`
+        <div class="log-item"><div class="top"><span>${fmtDate(l.date)}</span><span>oleh ${esc(l.by||'-')}</span></div>
+        ${conditionBadge(l.condition)} ${l.note? '— '+esc(l.note):''}</div>`).join('') : `<p class="note">Belum ada riwayat kondisi.</p>`}
+    </div>
+    <div class="action-row">
+      <button class="btn btn-primary btn-sm" data-action="add-condition">+ Perbarui status kondisi</button>
+    </div>`;
+  }
+  if(detailTab==='transfer'){
+    return `<div class="log-list">
+      ${a.transferLog.length? a.transferLog.slice().reverse().map(l=>`
+        <div class="log-item"><div class="top"><span>${fmtDate(l.date)}</span><span>oleh ${esc(l.by||'-')}</span></div>
+        ${esc(l.from)} → <b>${esc(l.to)}</b> ${l.note? '— '+esc(l.note):''}</div>`).join('') : `<p class="note">Belum ada riwayat mutasi lokasi.</p>`}
+    </div>
+    <div class="action-row">
+      ${isAdmin? `<button class="btn btn-primary btn-sm" data-action="add-transfer">+ Pindahkan lokasi</button>` : `<p class="note">Hanya admin yang bisa memindahkan lokasi aset.</p>`}
+    </div>`;
+  }
+  // info / actions tab
+  return `<div class="action-row" style="padding-top:16px;flex-direction:column;align-items:stretch;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-outline btn-sm" data-action="add-usage">Tambah pemakaian</button>
+      <button class="btn btn-outline btn-sm" data-action="add-condition">Perbarui kondisi</button>
+      ${isAdmin? `<button class="btn btn-outline btn-sm" data-action="add-transfer">Pindahkan lokasi</button>`:''}
+      ${isAdmin && a.status!=='disposed' ? `<button class="btn btn-outline btn-sm" data-action="edit-asset">Ubah data aset</button>`:''}
+      ${isAdmin && a.status!=='disposed' ? `<button class="btn btn-danger btn-sm" data-action="dispose-asset">Disposal / hapus aset</button>`:''}
+    </div>
+    ${!isAdmin? `<p class="note" style="margin-top:10px;">Masuk sebagai admin untuk mengubah data aset, memindahkan lokasi, atau melakukan disposal.</p>`:''}
+  </div>`;
+}
+
+function switchDetailTab(tab){ detailTab = tab; renderAssetDetailModal(); }
+
+/* ---- sub-forms inside detail modal ---- */
+function promptAddUsage(){
+  openModal(`
+    <div class="modal-head"><h2>Tambah status penggunaan</h2><button class="x" data-close>&times;</button></div>
+    <div class="form-grid">
+      <label class="field">Nama event / kegiatan<input type="text" id="uEvent" placeholder="mis. Rapat client, Instalasi cabang baru"></label>
+      <label class="field">Penanggung jawab<input type="text" id="uResp" placeholder="Nama pemakai"></label>
+      <label class="field">Tanggal<input type="date" id="uDate" value="${todayISO()}"></label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-close>Batal</button>
+      <button class="btn btn-primary" data-submit="usage">Simpan</button>
+    </div>
+  `);
+}
+function promptAddCondition(){
+  openModal(`
+    <div class="modal-head"><h2>Perbarui status kondisi</h2><button class="x" data-close>&times;</button></div>
+    <div class="form-grid">
+      <label class="field">Kondisi
+        <select id="cCond">
+          <option value="baik">Baik</option>
+          <option value="rusak_ringan">Rusak ringan</option>
+          <option value="rusak_berat">Rusak berat</option>
+          <option value="diperbaiki">Diperbaiki</option>
+        </select>
+      </label>
+      <label class="field">Tanggal<input type="date" id="cDate" value="${todayISO()}"></label>
+      <label class="field" style="grid-column:1/-1;">Catatan (opsional)<textarea id="cNote" rows="2"></textarea></label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-close>Batal</button>
+      <button class="btn btn-primary" data-submit="condition">Simpan</button>
+    </div>
+  `);
+}
+function promptAddTransfer(){
+  const a = DB.assets.find(x=>x.id===selectedAssetId);
+  openModal(`
+    <div class="modal-head"><h2>Pindahkan lokasi aset</h2><button class="x" data-close>&times;</button></div>
+    <p class="note">Lokasi saat ini: <b>${esc(a.location)}</b></p>
+    <div class="form-grid">
+      <label class="field">Lokasi tujuan
+        <select id="tTo">${DB.meta.locations.filter(l=>l!==a.location).map(l=>`<option>${esc(l)}</option>`).join('')}</select>
+      </label>
+      <label class="field">Tanggal<input type="date" id="tDate" value="${todayISO()}"></label>
+      <label class="field" style="grid-column:1/-1;">Catatan (opsional)<textarea id="tNote" rows="2"></textarea></label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-close>Batal</button>
+      <button class="btn btn-primary" data-submit="transfer">Pindahkan</button>
+    </div>
+  `);
+}
+function promptDispose(){
+  openModal(`
+    <div class="modal-head"><h2>Disposal / hapus aset</h2><button class="x" data-close>&times;</button></div>
+    <p class="note warn">Aset akan dikeluarkan dari perhitungan nilai aktif. Riwayat tetap tersimpan untuk audit trail dan tidak bisa dibatalkan dari sini.</p>
+    <div class="form-grid">
+      <label class="field">Metode
+        <select id="dMethod">
+          <option value="dijual">Dijual</option>
+          <option value="dihapusbukukan">Dihapusbukukan</option>
+          <option value="rusak_total">Rusak total</option>
+        </select>
+      </label>
+      <label class="field">Tanggal<input type="date" id="dDate" value="${todayISO()}"></label>
+      <label class="field">Nilai jual (jika dijual)<input type="number" id="dValue" value="0" min="0"></label>
+      <label class="field">Alasan / catatan<input type="text" id="dReason" placeholder="mis. Sudah tidak layak pakai"></label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-close>Batal</button>
+      <button class="btn btn-danger" data-submit="dispose">Konfirmasi disposal</button>
+    </div>
+  `);
+}
+
+async function submitSubForm(type){
+  const a = DB.assets.find(x=>x.id===selectedAssetId);
+  if(!a) return;
+  if(type==='usage'){
+    const event = document.getElementById('uEvent').value.trim();
+    const responsible = document.getElementById('uResp').value.trim();
+    const date = document.getElementById('uDate').value || todayISO();
+    if(!event || !responsible){ showToast('Nama event dan penanggung jawab wajib diisi.'); return; }
+    a.usageLog.push({event, responsible, date});
+    showToast('Status penggunaan ditambahkan.');
+  }
+  if(type==='condition'){
+    const condition = document.getElementById('cCond').value;
+    const date = document.getElementById('cDate').value || todayISO();
+    const note = document.getElementById('cNote').value.trim();
+    a.condition = condition;
+    a.conditionLog.push({condition, date, note, by: isAdmin?'Admin':'Staf'});
+    showToast('Kondisi aset diperbarui.');
+  }
+  if(type==='transfer'){
+    const to = document.getElementById('tTo').value;
+    const date = document.getElementById('tDate').value || todayISO();
+    const note = document.getElementById('tNote').value.trim();
+    a.transferLog.push({from:a.location, to, date, note, by:'Admin'});
+    a.location = to;
+    showToast('Lokasi aset dipindahkan.');
+  }
+  if(type==='dispose'){
+    const method = document.getElementById('dMethod').value;
+    const date = document.getElementById('dDate').value || todayISO();
+    const value = Number(document.getElementById('dValue').value)||0;
+    const reason = document.getElementById('dReason').value.trim();
+    a.status='disposed';
+    a.disposalDate=date; a.disposalMethod=method; a.disposalValue=value; a.disposalReason=reason;
+    showToast('Aset dihapusbukukan dari nilai aktif.');
+  }
+  await saveAssets();
+  closeModal();
+  if(type==='dispose'){ render(); } else { openAssetDetail(a.id); }
+}
+
+/* =========================================================
+   VIEW: IMPORT EXCEL
+   ========================================================= */
+let importRows = [];
+function viewImport(){
+  return `
+  <div class="card" style="max-width:760px;">
+    <h3>Unggah file Excel / CSV</h3>
+    <p class="note" style="margin-bottom:14px;">
+      Kolom yang dibaca: <b>Nama, Kategori, Lokasi, Tanggal Perolehan (YYYY-MM-DD), Harga Perolehan, Penanggung Jawab</b>.
+      Kolom opsional: Metode Penyusutan (straight_line / declining_balance), Masa Manfaat Tahun, Nilai Residu, Tag.
+    </p>
+    <div class="drop" id="dropZone">
+      <div style="font-size:22px;margin-bottom:6px;">⇩</div>
+      Klik untuk pilih file, atau seret file .xlsx / .csv ke sini
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;">
+    </div>
+    <div style="margin-top:12px;">
+      <button class="btn btn-outline btn-sm" id="downloadTemplate">Unduh template CSV</button>
+    </div>
+    <div id="importPreview"></div>
+  </div>`;
+}
+
+function handleImportFile(file){
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet, {defval:''});
+      importRows = json.map(row=>normalizeImportRow(row));
+      renderImportPreview();
+    }catch(err){
+      showToast('Gagal membaca file. Pastikan format sesuai template.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+function normalizeImportRow(row){
+  const get = (...keys)=>{ for(const k of keys){ if(row[k]!==undefined && row[k]!=='') return row[k]; } return ''; };
+  let dateVal = get('Tanggal Perolehan','tanggal_perolehan','AcquisitionDate');
+  if(typeof dateVal === 'number'){ // Excel serial date
+    const d = new Date(Math.round((dateVal-25569)*86400*1000));
+    dateVal = d.toISOString().slice(0,10);
+  } else if(dateVal instanceof Date){
+    dateVal = dateVal.toISOString().slice(0,10);
+  }
+  return {
+    name: String(get('Nama','nama','Name')||'').trim(),
+    category: String(get('Kategori','kategori','Category')||DB.meta.categories[0]||'Lainnya').trim(),
+    location: String(get('Lokasi','lokasi','Location')||DB.meta.locations[0]||'').trim(),
+    acquisitionDate: String(dateVal||todayISO()),
+    acquisitionPrice: Number(get('Harga Perolehan','harga_perolehan','AcquisitionPrice'))||0,
+    owner: String(get('Penanggung Jawab','penanggung_jawab','Owner')||'').trim(),
+    depreciationMethod: (String(get('Metode Penyusutan','MetodePenyusutan'))||'straight_line').toLowerCase().includes('declin') ? 'declining_balance':'straight_line',
+    usefulLifeYears: Number(get('Masa Manfaat Tahun','MasaManfaat'))||4,
+    salvageValue: Number(get('Nilai Residu','NilaiResidu'))||0,
+    tags: String(get('Tag','tag')||''),
+    _valid: !!String(get('Nama','nama','Name')||'').trim()
+  };
+}
+function renderImportPreview(){
+  const wrap = document.getElementById('importPreview');
+  if(!wrap) return;
+  if(importRows.length===0){ wrap.innerHTML=''; return; }
+  const validCount = importRows.filter(r=>r._valid).length;
+  wrap.innerHTML = `
+    <div class="kpi-strip" style="margin-top:16px;">
+      <div class="kpi"><div class="k">Baris terbaca</div><div class="v">${importRows.length}</div></div>
+      <div class="kpi"><div class="k">Siap diimpor</div><div class="v">${validCount}</div></div>
+      <div class="kpi"><div class="k">Dilewati (nama kosong)</div><div class="v">${importRows.length-validCount}</div></div>
+    </div>
+    <div class="preview-wrap">
+      <table>
+        <thead><tr><th>Nama</th><th>Kategori</th><th>Lokasi</th><th>Tgl Perolehan</th><th>Harga</th><th>PJ</th></tr></thead>
+        <tbody>
+          ${importRows.slice(0,50).map(r=>`<tr style="${r._valid?'':'opacity:.4;'}"><td>${esc(r.name)||'(kosong)'}</td><td>${esc(r.category)}</td><td>${esc(r.location)}</td><td>${esc(r.acquisitionDate)}</td><td>${fmtIDR(r.acquisitionPrice)}</td><td>${esc(r.owner)}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:8px;">
+      <button class="btn btn-primary" id="confirmImport" ${!isAdmin?'disabled':''}>${isAdmin? `Impor ${validCount} aset`:'Masuk sebagai admin untuk impor'}</button>
+      <button class="btn btn-outline" id="cancelImport">Batal</button>
+    </div>
+  `;
+}
+async function confirmImportRows(){
+  const valid = importRows.filter(r=>r._valid);
+  valid.forEach(r=>{
+    const {_valid, ...data} = r;
+    DB.assets.push({
+      id: uid(), code: genCode(), ...data,
+      status:'active', condition:'baik',
+      usageLog:[], conditionLog:[], transferLog:[],
+      createdAt:new Date().toISOString()
+    });
+  });
+  await saveMeta();
+  await saveAssets();
+  showToast(`${valid.length} aset berhasil diimpor.`);
+  importRows = [];
+  setRoute('assets');
+}
+function downloadCSVTemplate(){
+  const header = 'Nama,Kategori,Lokasi,Tanggal Perolehan,Harga Perolehan,Penanggung Jawab,Metode Penyusutan,Masa Manfaat Tahun,Nilai Residu,Tag\n';
+  const sample = 'Laptop Dell Latitude 5440,Elektronik,Kantor Pusat,2025-01-15,12000000,Budi Santoso,straight_line,4,1000000,IT\n';
+  downloadBlob(header+sample, 'template-import-aset.csv','text/csv');
+}
+function downloadBlob(content, filename, type){
+  const blob = new Blob([content], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+/* =========================================================
+   VIEW: SCAN / CARI QR
+   ========================================================= */
+function viewScan(){
+  return `
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>Pindai kamera</h3>
+      <p class="note" style="margin-bottom:12px;">Izinkan akses kamera lalu arahkan ke kode QR aset. Jika kamera tidak tersedia di perangkat ini, gunakan pencarian manual di sebelah.</p>
+      <div class="scan-frame">
+        <video id="scanVideo" class="scan-video" playsinline muted></video>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" id="startScan">Mulai kamera</button>
+        <button class="btn btn-outline btn-sm" id="stopScan">Hentikan</button>
+      </div>
+      <div id="scanStatus" class="note" style="margin-top:10px;"></div>
+    </div>
+    <div class="card">
+      <h3>Cari manual</h3>
+      <p class="note" style="margin-bottom:12px;">Ketik kode aset (mis. AST-2026-0001) atau nama aset.</p>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="manualCode" class="search-input" placeholder="Kode atau nama aset..." style="flex:1;">
+        <button class="btn btn-primary" id="manualSearchBtn">Cari</button>
+      </div>
+      <div id="manualResults" style="margin-top:14px;"></div>
+    </div>
+  </div>`;
+}
+function doManualSearch(){
+  const q = document.getElementById('manualCode').value.trim().toLowerCase();
+  const wrap = document.getElementById('manualResults');
+  if(!q){ wrap.innerHTML=''; return; }
+  const results = DB.assets.filter(a=> a.code.toLowerCase().includes(q) || a.name.toLowerCase().includes(q));
+  if(results.length===0){ wrap.innerHTML = `<p class="note">Tidak ditemukan aset dengan kata kunci tersebut.</p>`; return; }
+  wrap.innerHTML = results.slice(0,10).map(a=>`
+    <div class="loc-row" data-open="${a.id}" style="cursor:pointer;">
+      <div class="dot" style="background:${a.status==='disposed'?'#A9A398':'#2F6F4E'}"></div>
+      <div class="name">${esc(a.name)} <span class="code-chip">${esc(a.code)}</span></div>
+      <div class="count">${esc(a.location)}</div>
+    </div>`).join('');
+}
+async function startScanner(){
+  const video = document.getElementById('scanVideo');
+  const status = document.getElementById('scanStatus');
+  try{
+    scanStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    video.srcObject = scanStream;
+    await video.play();
+    status.textContent = 'Kamera aktif — arahkan ke QR aset.';
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const tick = ()=>{
+      if(!scanStream) return;
+      if(video.readyState === video.HAVE_ENOUGH_DATA){
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        ctx.drawImage(video,0,0,canvas.width,canvas.height);
+        const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
+        const code = window.jsQR ? jsQR(imgData.data, imgData.width, imgData.height) : null;
+        if(code && code.data){
+          const raw = code.data.replace('ASSET:','').trim();
+          const asset = assetByCode(raw);
+          if(asset){
+            status.textContent = `Ditemukan: ${asset.name}`;
+            stopScanner();
+            openAssetDetail(asset.id);
+            return;
+          } else {
+            status.textContent = 'Kode terbaca tapi tidak cocok dengan data aset manapun.';
+          }
+        }
+      }
+      scanRAF = requestAnimationFrame(tick);
+    };
+    scanRAF = requestAnimationFrame(tick);
+  }catch(err){
+    status.textContent = 'Tidak bisa mengakses kamera di perangkat/browser ini. Gunakan pencarian manual.';
+  }
+}
+function stopScanner(){
+  if(scanRAF) cancelAnimationFrame(scanRAF);
+  scanRAF = null;
+  if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; }
+}
+
+/* =========================================================
+   VIEW: REPORTS
+   ========================================================= */
+function reportYears(){
+  const ys = new Set(DB.assets.map(a=> (a.acquisitionDate||'').slice(0,4)).filter(Boolean));
+  return Array.from(ys).sort().reverse();
+}
+function filteredReportRows(){
+  return DB.assets.filter(a=>{
+    if(reportFilter.status==='active' && a.status==='disposed') return false;
+    if(reportFilter.status==='disposed' && a.status!=='disposed') return false;
+    if(reportFilter.category && a.category!==reportFilter.category) return false;
+    if(reportFilter.location && a.location!==reportFilter.location) return false;
+    if(reportFilter.year && !(a.acquisitionDate||'').startsWith(reportFilter.year)) return false;
+    if(reportFilter.tag){
+      const tags = (a.tags||'').toLowerCase();
+      if(!tags.includes(reportFilter.tag.toLowerCase())) return false;
+    }
+    return true;
+  });
+}
+function viewReports(){
+  const rows = filteredReportRows();
+  let sumCost=0,sumNBV=0;
+  rows.forEach(a=>{ sumCost+=Number(a.acquisitionPrice)||0; sumNBV += (a.status==='disposed'? 0 : computeNBV(a).nbv); });
+
+  return `
+  <div class="toolbar">
+    <select id="rCategory"><option value="">Semua kategori</option>${DB.meta.categories.map(c=>`<option ${reportFilter.category===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
+    <select id="rLocation"><option value="">Semua lokasi</option>${DB.meta.locations.map(l=>`<option ${reportFilter.location===l?'selected':''}>${esc(l)}</option>`).join('')}</select>
+    <select id="rYear"><option value="">Semua tahun</option>${reportYears().map(y=>`<option ${reportFilter.year===y?'selected':''}>${y}</option>`).join('')}</select>
+    <input type="text" id="rTag" placeholder="Filter tag..." value="${esc(reportFilter.tag)}" style="width:140px;">
+    <select id="rStatus">
+      <option value="active" ${reportFilter.status==='active'?'selected':''}>Aktif</option>
+      <option value="disposed" ${reportFilter.status==='disposed'?'selected':''}>Dihapusbukukan</option>
+      <option value="all" ${reportFilter.status==='all'?'selected':''}>Semua</option>
+    </select>
+    <div style="flex:1;"></div>
+    <button class="btn btn-outline btn-sm" id="exportCsvBtn">Ekspor CSV</button>
+    <button class="btn btn-primary btn-sm" id="printReportBtn">Cetak / PDF</button>
+  </div>
+
+  <div class="kpi-strip">
+    <div class="kpi"><div class="k">Jumlah aset</div><div class="v">${rows.length}</div></div>
+    <div class="kpi"><div class="k">Total harga perolehan</div><div class="v">${fmtIDR(sumCost)}</div></div>
+    <div class="kpi"><div class="k">Total nilai buku aktif</div><div class="v">${fmtIDR(sumNBV)}</div></div>
+    <div class="kpi"><div class="k">Akumulasi penyusutan</div><div class="v">${fmtIDR(sumCost-sumNBV)}</div></div>
+  </div>
+
+  <div class="card" style="padding:0;overflow:auto;">
+    ${rows.length===0? `<div class="empty"><div class="big">Tidak ada data untuk filter ini</div></div>` : `
+    <table id="reportTable">
+      <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Lokasi</th><th>Tgl perolehan</th><th style="text-align:right;">Harga perolehan</th><th style="text-align:right;">NBV</th><th>Status</th></tr></thead>
+      <tbody>
+        ${rows.map(a=>{
+          const nbv = a.status==='disposed'? 0 : computeNBV(a).nbv;
+          return `<tr>
+            <td><span class="code-chip">${esc(a.code)}</span></td>
+            <td>${esc(a.name)}</td><td>${esc(a.category)}</td><td>${esc(a.location)}</td>
+            <td>${fmtDate(a.acquisitionDate)}</td>
+            <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmtIDR(a.acquisitionPrice)}</td>
+            <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmtIDR(nbv)}</td>
+            <td>${a.status==='disposed'?'Dihapusbukukan':'Aktif'}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`}
+  </div>`;
+}
+function exportReportCSV(){
+  const rows = filteredReportRows();
+  const header = 'Kode,Nama,Kategori,Lokasi,Tanggal Perolehan,Harga Perolehan,Nilai Buku,Status\n';
+  const lines = rows.map(a=>{
+    const nbv = a.status==='disposed'? 0 : computeNBV(a).nbv;
+    return [a.code,a.name,a.category,a.location,a.acquisitionDate,a.acquisitionPrice,nbv,a.status].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
+  });
+  downloadBlob(header+lines.join('\n'), `laporan-aset-${todayISO()}.csv`, 'text/csv');
+}
+function printReport(){
+  const table = document.getElementById('reportTable');
+  const area = document.getElementById('print-area');
+  area.innerHTML = `<h2 style="font-family:sans-serif;">Laporan Aset — ${new Date().toLocaleDateString('id-ID')}</h2>` + (table? table.outerHTML : '<p>Tidak ada data.</p>');
+  window.print();
+}
+
+/* =========================================================
+   VIEW: SETTINGS
+   ========================================================= */
+function viewSettings(){
+  if(!isAdmin){
+    return `<div class="card"><p class="note">Masuk sebagai admin untuk mengubah kategori, lokasi kantor, dan PIN.</p></div>`;
+  }
+  return `
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>Lokasi kantor</h3>
+      <div id="locList">${DB.meta.locations.map((l,i)=>`
+        <div class="loc-row"><div class="name">${esc(l)}</div><button class="btn btn-ghost btn-sm" data-rm-loc="${i}">Hapus</button></div>
+      `).join('')}</div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input type="text" id="newLoc" placeholder="Nama kantor baru..." style="flex:1;">
+        <button class="btn btn-outline btn-sm" id="addLocBtn">Tambah</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Kategori aset</h3>
+      <div id="catList">${DB.meta.categories.map((c,i)=>`
+        <div class="loc-row"><div class="name">${esc(c)}</div><button class="btn btn-ghost btn-sm" data-rm-cat="${i}">Hapus</button></div>
+      `).join('')}</div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input type="text" id="newCat" placeholder="Kategori baru..." style="flex:1;">
+        <button class="btn btn-outline btn-sm" id="addCatBtn">Tambah</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-2" style="margin-top:16px;">
+    <div class="card">
+      <h3>PIN admin</h3>
+      <p class="note" style="margin-bottom:10px;">PIN sederhana untuk membatasi akses ubah data pada perangkat ini. Bukan pengaman tingkat keamanan penuh — cocok untuk mencegah perubahan tidak sengaja oleh staf.</p>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="newPin" placeholder="PIN baru" style="flex:1;">
+        <button class="btn btn-outline btn-sm" id="setPinBtn">Simpan PIN</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Cadangan data</h3>
+      <p class="note" style="margin-bottom:10px;">Unduh cadangan seluruh data aset sebagai file JSON, atau pulihkan dari cadangan.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" id="exportBackup">Unduh cadangan JSON</button>
+        <label class="btn btn-outline btn-sm" style="cursor:pointer;">Pulihkan dari file
+          <input type="file" id="restoreFile" accept=".json" style="display:none;">
+        </label>
+      </div>
+    </div>
+  </div>
+  `;
+}
+
+/* =========================================================
+   MODAL HELPERS
+   ========================================================= */
+function openModal(html, size){
+  closeModal();
+  const overlay = document.createElement('div');
+  overlay.className='overlay';
+  overlay.id='modalOverlay';
+  overlay.innerHTML = `<div class="modal ${size==='wide'?'wide':''}">${html}</div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('mousedown', (e)=>{ if(e.target===overlay) closeModal(); });
+}
+function closeModal(){
+  const ov = document.getElementById('modalOverlay');
+  if(ov) ov.remove();
+}
+
+/* =========================================================
+   EVENT BINDING
+   ========================================================= */
+function bindGlobalEvents(){
+  document.querySelectorAll('.nav button[data-route]').forEach(b=>{
+    b.onclick = ()=> setRoute(b.dataset.route);
+  });
+  const modeBtn = document.getElementById('toggleModeBtn');
+  if(modeBtn) modeBtn.onclick = toggleAdminMode;
+
+  // Dashboard empty-state shortcuts
+  document.querySelectorAll('[data-route][data-action="new-asset"]').forEach(b=>{
+    b.addEventListener('click', ()=> setTimeout(openAssetForm, 30));
+  });
+
+  if(route==='assets'){
+    const q=document.getElementById('fQ'), c=document.getElementById('fCategory'), l=document.getElementById('fLocation'), s=document.getElementById('fStatus');
+    if(q) q.oninput = ()=>{ listFilter.q=q.value; renderPartial('assets'); };
+    if(c) c.onchange = ()=>{ listFilter.category=c.value; render(); };
+    if(l) l.onchange = ()=>{ listFilter.location=l.value; render(); };
+    if(s) s.onchange = ()=>{ listFilter.status=s.value; render(); };
+    const newBtn = document.getElementById('btnNewAsset');
+    if(newBtn) newBtn.onclick = ()=> openAssetForm();
+    document.querySelectorAll('tr[data-open]').forEach(tr=>{
+      tr.onclick = ()=> openAssetDetail(tr.dataset.open);
+    });
+  }
+
+  if(route==='import'){
+    const dz = document.getElementById('dropZone'), fi = document.getElementById('fileInput');
+    if(dz){
+      dz.onclick = ()=> fi.click();
+      dz.ondragover = (e)=>{ e.preventDefault(); dz.classList.add('drag'); };
+      dz.ondragleave = ()=> dz.classList.remove('drag');
+      dz.ondrop = (e)=>{ e.preventDefault(); dz.classList.remove('drag'); if(e.dataTransfer.files[0]) handleImportFile(e.dataTransfer.files[0]); };
+    }
+    if(fi) fi.onchange = ()=>{ if(fi.files[0]) handleImportFile(fi.files[0]); };
+    const dl = document.getElementById('downloadTemplate');
+    if(dl) dl.onclick = downloadCSVTemplate;
+  }
+
+  if(route==='scan'){
+    const start = document.getElementById('startScan'), stop = document.getElementById('stopScan');
+    if(start) start.onclick = startScanner;
+    if(stop) stop.onclick = ()=>{ stopScanner(); const s=document.getElementById('scanStatus'); if(s) s.textContent='Kamera dihentikan.'; };
+    const btn = document.getElementById('manualSearchBtn'), inp = document.getElementById('manualCode');
+    if(btn) btn.onclick = doManualSearch;
+    if(inp) inp.onkeydown = (e)=>{ if(e.key==='Enter') doManualSearch(); };
+  }
+
+  if(route==='reports'){
+    const rc=document.getElementById('rCategory'), rl=document.getElementById('rLocation'), ry=document.getElementById('rYear'), rt=document.getElementById('rTag'), rs=document.getElementById('rStatus');
+    if(rc) rc.onchange=()=>{ reportFilter.category=rc.value; render(); };
+    if(rl) rl.onchange=()=>{ reportFilter.location=rl.value; render(); };
+    if(ry) ry.onchange=()=>{ reportFilter.year=ry.value; render(); };
+    if(rt) rt.oninput=()=>{ reportFilter.tag=rt.value; render(); };
+    if(rs) rs.onchange=()=>{ reportFilter.status=rs.value; render(); };
+    const ex = document.getElementById('exportCsvBtn'); if(ex) ex.onclick=exportReportCSV;
+    const pr = document.getElementById('printReportBtn'); if(pr) pr.onclick=printReport;
+  }
+
+  if(route==='settings'){
+    const addLoc = document.getElementById('addLocBtn');
+    if(addLoc) addLoc.onclick = async ()=>{
+      const v = document.getElementById('newLoc').value.trim();
+      if(v && !DB.meta.locations.includes(v)){ DB.meta.locations.push(v); await saveMeta(); render(); }
+    };
+    document.querySelectorAll('[data-rm-loc]').forEach(b=>{
+      b.onclick = async ()=>{ DB.meta.locations.splice(Number(b.dataset.rmLoc),1); await saveMeta(); render(); };
+    });
+    const addCat = document.getElementById('addCatBtn');
+    if(addCat) addCat.onclick = async ()=>{
+      const v = document.getElementById('newCat').value.trim();
+      if(v && !DB.meta.categories.includes(v)){ DB.meta.categories.push(v); await saveMeta(); render(); }
+    };
+    document.querySelectorAll('[data-rm-cat]').forEach(b=>{
+      b.onclick = async ()=>{ DB.meta.categories.splice(Number(b.dataset.rmCat),1); await saveMeta(); render(); };
+    });
+    const pinBtn = document.getElementById('setPinBtn');
+    if(pinBtn) pinBtn.onclick = async ()=>{
+      const v = document.getElementById('newPin').value.trim();
+      if(v){ DB.meta.adminPin = v; await saveMeta(); showToast('PIN admin diperbarui.'); }
+    };
+    const exp = document.getElementById('exportBackup');
+    if(exp) exp.onclick = ()=> downloadBlob(JSON.stringify({assets:DB.assets, meta:DB.meta}, null, 2), `cadangan-aset-${todayISO()}.json`, 'application/json');
+    const restore = document.getElementById('restoreFile');
+    if(restore) restore.onchange = (e)=>{
+      const file = e.target.files[0]; if(!file) return;
+      const r = new FileReader();
+      r.onload = async (ev)=>{
+        try{
+          const data = JSON.parse(ev.target.result);
+          if(data.assets && data.meta){ DB.assets = data.assets; DB.meta = data.meta; await saveAssets(); await saveMeta(); showToast('Data dipulihkan dari cadangan.'); render(); }
+          else showToast('Format file cadangan tidak dikenali.');
+        }catch(err){ showToast('Gagal membaca file cadangan.'); }
+      };
+      r.readAsText(file);
+    };
+  }
+
+  // Modal-level delegated events (present regardless of route)
+  document.body.onclick = (e)=>{
+    const closeEl = e.target.closest('[data-close]');
+    if(closeEl){ closeModal(); return; }
+    const openEl = e.target.closest('[data-open]');
+    if(openEl && !e.target.closest('.overlay')){ /* handled above per-route already for table rows */ }
+    const dtab = e.target.closest('[data-dtab]');
+    if(dtab){ switchDetailTab(dtab.dataset.dtab); return; }
+    const act = e.target.closest('[data-action]');
+    if(act){
+      const a = act.dataset.action;
+      if(a==='add-usage') promptAddUsage();
+      if(a==='add-condition') promptAddCondition();
+      if(a==='add-transfer') promptAddTransfer();
+      if(a==='dispose-asset') promptDispose();
+      if(a==='edit-asset'){ const asset=DB.assets.find(x=>x.id===selectedAssetId); closeModal(); setTimeout(()=>openAssetForm(asset.id),30); }
+      return;
+    }
+    const submitEl = e.target.closest('[data-submit]');
+    if(submitEl){ submitSubForm(submitEl.dataset.submit); return; }
+    const saveBtn = e.target.closest('#saveAssetBtn');
+    if(saveBtn){ saveAssetFromForm(saveBtn.dataset.id || null); return; }
+    const openRow = e.target.closest('[data-open]');
+    if(openRow){ openAssetDetail(openRow.dataset.open); return; }
+    const dlQr = e.target.closest('#dlQr');
+    if(dlQr){
+      const holder = document.getElementById('qrHolder');
+      const img = holder && holder.querySelector('img');
+      const canvas = holder && holder.querySelector('canvas');
+      const a = DB.assets.find(x=>x.id===selectedAssetId);
+      const link = document.createElement('a');
+      link.download = `qr-${a.code}.png`;
+      link.href = canvas ? canvas.toDataURL('image/png') : (img? img.src : '');
+      link.click();
+      return;
+    }
+    const confirmImp = e.target.closest('#confirmImport');
+    if(confirmImp && isAdmin){ confirmImportRows(); return; }
+    const cancelImp = e.target.closest('#cancelImport');
+    if(cancelImp){ importRows=[]; renderImportPreview(); return; }
+  };
+}
+
+function renderPartial(routeName){
+  const v = document.getElementById('view');
+  if(v && route===routeName){ v.innerHTML = renderView(); bindGlobalEvents(); }
+}
+
+/* =========================================================
+   ADMIN MODE
+   ========================================================= */
+function toggleAdminMode(){
+  if(isAdmin){ isAdmin=false; showToast('Keluar dari mode admin.'); render(); return; }
+  const pin = prompt('Masukkan PIN admin:');
+  if(pin===null) return;
+  if(pin === DB.meta.adminPin){ isAdmin=true; showToast('Mode admin aktif.'); render(); }
+  else showToast('PIN salah.');
+}
+
+/* =========================================================
+   INIT
+   ========================================================= */
+async function init(){
+  document.getElementById('app').innerHTML = `<div style="padding:40px;font-family:Inter,sans-serif;color:#4b5560;">Memuat data...</div>`;
+  await loadDB();
+  render();
+}
+init();
+</script>
+</body>
+</html>

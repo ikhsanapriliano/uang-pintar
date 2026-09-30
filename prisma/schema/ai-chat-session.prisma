@@ -1,0 +1,17 @@
+model AIChatSession {
+    id             String                @id @default(uuid())
+    userId         String
+    status         AIChatSessionStatus   @default(OPEN)
+    createdAt      DateTime              @default(now()) @map("created_at")
+    updatedAt      DateTime              @updatedAt @map("updated_at")
+    user           User                  @relation(fields: [userId], references: [id])
+    details        AIChatSessionDetail[]
+    transcriptions AIChatTranscription[]
+
+    @@map("ai-chat-session")
+}
+
+enum AIChatSessionStatus {
+    OPEN
+    CLOSED
+}

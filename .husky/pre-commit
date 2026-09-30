@@ -1,0 +1,23 @@
+# Run linting
+# if npm run lint; then
+#   echo "Linting passed."
+# else
+#   echo "Linting failed. Please fix the issues before committing." >&2
+#   exit 1
+# fi
+
+# Run formatting
+if npm run format:check; then
+  echo "Formatting completed successfully."
+else
+  echo "Formatting failed. Please fix the issues before committing." >&2
+  exit 1
+fi
+
+# Run build
+# if npm run build; then
+#   echo "Build succeeded."
+# else
+#   echo "Build failed. Please fix the issues before committing." >&2
+#   exit 1
+# fi

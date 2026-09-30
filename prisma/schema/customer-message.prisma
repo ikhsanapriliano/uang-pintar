@@ -1,0 +1,24 @@
+model CustomerMessage {
+  id          String                @id @default(uuid())
+  name        String
+  contact     String
+  message     String
+  messageType CustomerMessageType
+  status      CustomerMessageStatus @default(OPEN)
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  @@map("customer_messages")
+}
+
+enum CustomerMessageType {
+  GENERAL
+  FEEDBACK
+  HELP
+}
+
+enum CustomerMessageStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}

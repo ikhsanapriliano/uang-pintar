@@ -1,0 +1,14 @@
+model AIChatSessionDetail {
+  id               String        @id @default(uuid())
+  sessionId        String
+  prompt           String
+  response         Json
+  promptTokens     Float
+  completionTokens Float
+  totalTokens      Float
+  cost             Float
+  createdAt        DateTime      @default(now()) @map("created_at")
+  session          AIChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("ai-chat-session-detail")
+}

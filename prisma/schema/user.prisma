@@ -1,0 +1,29 @@
+model User {
+  id                 String          @id @default(uuid())
+  email              String          @unique
+  firstName          String
+  lastName           String
+  password           String?
+  aiTransactionCount Int             @default(0)
+  role               Role            @default(MERCHANT)
+  status             UserStatus      @default(UNVERIFIED)
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+  transactions       Transaction[]
+  aiChatSessions     AIChatSession[]
+
+  @@map("users")
+}
+
+enum Role {
+  MERCHANT
+}
+
+enum UserStatus {
+  UNVERIFIED
+  FREE_TIER
+  MONTHLY_SUBSCRIPTION
+  YEARLY_SUBSCRIPTION
+  INACTIVE
+  SUSPENDED
+}
