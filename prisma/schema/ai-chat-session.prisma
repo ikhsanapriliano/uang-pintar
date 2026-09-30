@@ -8,7 +8,7 @@ model AIChatSession {
     details        AIChatSessionDetail[]
     transcriptions AIChatTranscription[]
 
-    @@map("ai-chat-session")
+    @@map("ai_chat_session")
 }
 
 enum AIChatSessionStatus {

@@ -17,7 +17,7 @@ import Link from "next/link";
 const navLinks = [
   { label: "Fitur", href: "#fitur" },
   { label: "Harga", href: "#harga" },
-  { label: "FAQ", href: "#faq" },
+  { label: "Pertanyaan", href: "#faq" },
 ];
 
 const LandingPageHeader = () => {

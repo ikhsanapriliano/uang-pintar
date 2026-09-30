@@ -5,6 +5,7 @@ model User {
   lastName           String
   password           String?
   aiTransactionCount Int             @default(0)
+  maxAITransaction   Int
   role               Role            @default(MERCHANT)
   status             UserStatus      @default(UNVERIFIED)
   createdAt          DateTime        @default(now()) @map("created_at")
@@ -21,9 +22,9 @@ enum Role {
 
 enum UserStatus {
   UNVERIFIED
-  FREE_TIER
-  MONTHLY_SUBSCRIPTION
-  YEARLY_SUBSCRIPTION
+  UJI_COBA
+  PINTAR_NGETIK
+  PINTAR_NGOMONG
   INACTIVE
   SUSPENDED
 }

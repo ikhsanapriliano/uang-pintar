@@ -1,10 +1,10 @@
 "use client";
 
-import { UangPintarNoBg } from "@/lib/images";
 import Image from "next/image";
 import { SessionProvider, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { UangPintarLogoNoBg } from "@/lib/images";
 
 type Props = {
   children: React.ReactNode;
@@ -47,7 +47,7 @@ const AuthAdminLayout = ({ children }: Props) => {
           <aside className="relative hidden h-full flex-1 overflow-hidden lg:flex lg:flex-col lg:items-center lg:justify-center lg:gap-8">
             <div className="relative aspect-square w-[55%] drop-shadow-2xl">
               <Image
-                src={UangPintarNoBg}
+                src={UangPintarLogoNoBg}
                 alt="Uang Pintar"
                 fill
                 className="object-contain"
@@ -56,7 +56,7 @@ const AuthAdminLayout = ({ children }: Props) => {
             <div className="text-center">
               <p className="text-3xl font-bold text-white">Uang Pintar AI</p>
               <p className="mt-2 text-base font-medium text-white/70">
-                Catat Penjualanmu Dibantu Tuan AI
+                Catat Keuanganmu Dibantu AI
               </p>
             </div>
           </aside>

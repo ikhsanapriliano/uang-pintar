@@ -10,5 +10,5 @@ model AIChatSessionDetail {
   createdAt        DateTime      @default(now()) @map("created_at")
   session          AIChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  @@map("ai-chat-session-detail")
+  @@map("ai_chat_session_detail")
 }

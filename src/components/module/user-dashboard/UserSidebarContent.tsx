@@ -73,7 +73,7 @@ const UserSidebarContent = ({
             <p className="truncate text-sm font-bold text-dl-foreground">
               Uang Pintar
             </p>
-            <p className="text-[11px] font-medium text-dl-muted">Tuan AI</p>
+            <p className="text-[11px] font-medium text-dl-muted">AI</p>
           </div>
         )}
         <Button
