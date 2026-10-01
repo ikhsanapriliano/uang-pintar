@@ -71,9 +71,11 @@ const UserSidebarContent = ({
         {!collapsed && (
           <div className="min-w-0 flex-1 leading-tight">
             <p className="truncate text-sm font-bold text-dl-foreground">
-              Uang Pintar
+              Uang Pintar AI
             </p>
-            <p className="text-[11px] font-medium text-dl-muted">AI</p>
+            <p className="text-[11px] font-medium text-dl-muted">
+              Catat Keuanganmu
+            </p>
           </div>
         )}
         <Button
