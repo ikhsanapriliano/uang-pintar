@@ -50,7 +50,7 @@ const UserSidebarContent = ({
   const fullName = [session?.user?.firstName, session?.user?.lastName]
     .filter(Boolean)
     .join(" ");
-  const displayName = fullName || "Pedagang";
+  const displayName = fullName || "Uang Pintar AI";
 
   return (
     <>
@@ -146,7 +146,7 @@ const UserSidebarContent = ({
                 variant="blue"
                 className="mt-1 truncate rounded-md text-[10px]"
               >
-                {session?.user?.status ?? "UNVERIFIED"}
+                {session?.user?.status ?? "AI"}
               </Badge>
             </div>
           )}

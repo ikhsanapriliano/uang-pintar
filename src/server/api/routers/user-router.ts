@@ -75,8 +75,8 @@ export const userRouter = createTRPCRouter({
               lastName: input.last_name,
               password: hash,
               maxAISession: 20,
-              package_start: new Date(),
-              package_end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+              packageStart: new Date(),
+              packageRnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
             },
           });
           await sendAndStoreCode({

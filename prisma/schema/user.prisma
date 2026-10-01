@@ -9,8 +9,8 @@ model User {
   maxAISession   Int
   role           Role            @default(USER)
   status         UserStatus      @default(UNVERIFIED)
-  package_start  DateTime
-  package_end    DateTime
+  packageStart   DateTime
+  packageRnd     DateTime
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
   transactions   Transaction[]

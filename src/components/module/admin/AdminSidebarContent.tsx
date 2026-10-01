@@ -41,7 +41,7 @@ const AdminSidebarContent = ({
   const fullName = [session?.user?.firstName, session?.user?.lastName]
     .filter(Boolean)
     .join(" ");
-  const displayName = fullName || "Pedagang";
+  const displayName = fullName || "Admin";
 
   return (
     <>

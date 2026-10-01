@@ -44,7 +44,7 @@ const initialMessages: Message[] = [
     id: 1,
     role: "ai",
     content:
-      'Halo! Saya asisten AI untuk mencatat transaksi. Ceritakan penjualanmu, contoh: "Jual nasi goreng 50.000, dibayar QRIS."',
+      'Halo! Saya asisten AI untuk mencatat pemasukan dan pengeluaranmu. Ceritakan saja, contoh: "Gaji bulanan masuk 5.000.000" atau "Beli sembako 150.000."',
   },
 ];
 
@@ -69,7 +69,9 @@ const initialDraft = (): TransactionDraft => {
   };
 };
 
-const MAX_SESSION_COST = 0.00025;
+const MAX_SESSION_COST = 0.0001;
+const MAX_VOICE_SECONDS = 20;
+const MAX_VOICE_COST = (MAX_VOICE_SECONDS / 3600) * 0.22;
 
 const draftDate = (data: Partial<TAIResponse>): Date | null => {
   if (!data.trxDate) return null;
@@ -78,15 +80,16 @@ const draftDate = (data: Partial<TAIResponse>): Date | null => {
 };
 
 const isComplete = (data: Partial<TAIResponse>) =>
-  !!data.purpose && !!data.amount;
+  !!data.category && !!data.purpose && !!data.amount;
 
 const formatResponse = (data: Partial<TAIResponse>) => {
   const date = draftDate(data);
-  return `Berikut data transaksi kamu:
+  return `Berikut catatan kamu:
+- Kategori: ${data.category === "EXPENSE" ? "Pengeluaran" : data.category === "INCOME" ? "Pemasukan" : "-"}
 - Keterangan: ${data.purpose ?? "-"}
 - Nominal: ${formatCurrency(Number(data.amount) || 0) ?? "-"}
 - Tanggal: ${date ? formatDateWithTime(date.toISOString()) : "-"}
-${isComplete(data) ? "\n Data transaksi sudah lengkap, kamu bisa klik tombol Catat Transaksi untuk menyimpan jika sudah benar." : ""}`;
+${isComplete(data) ? "\n Catatan sudah lengkap, kamu bisa klik tombol Catat Sekarang untuk menyimpan jika sudah benar." : ""}`;
 };
 
 const mergeResponse = (
@@ -108,17 +111,22 @@ const AIChatRoom = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [sessionCost, setSessionCost] = useState(0);
+  const [voiceCost, setVoiceCost] = useState(0);
   const [aiSessionCount, setAiTransactionCount] = useState(0);
+  const [maxSession, setMaxSession] = useState(50);
   const aiResponseRef = useRef<TransactionDraft>(initialDraft());
   const [, setDraftTick] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(initialMessages.length);
   const [isRecording, setIsRecording] = useState(false);
+  const [usedVoiceSeconds, setUsedVoiceSeconds] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recordingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const voiceSecondsRef = useRef(0);
   const cancelRecordingRef = useRef(false);
 
   const pushMessage = (message: Omit<Message, "id">) => {
@@ -130,6 +138,7 @@ const AIChatRoom = () => {
     onSuccess: (result) => {
       const session = result.session;
       setAiTransactionCount(result.aiSessionCount);
+      setMaxSession(result.maxAISession);
       let lastId = 1;
       const draft = initialDraft();
       const loaded: Message[] = [...initialMessages];
@@ -177,6 +186,7 @@ const AIChatRoom = () => {
   const transcribe = api.ai.transcribe.useMutation({
     onSuccess: (result) => {
       setInput(result.text);
+      setVoiceCost((c) => c + (result.usage?.cost ?? 0));
       toastSuccess("Berhasil!", "Audio berhasil diubah menjadi teks");
     },
     onError: (error) => {
@@ -257,11 +267,18 @@ const AIChatRoom = () => {
           clearTimeout(recordingTimeoutRef.current);
           recordingTimeoutRef.current = null;
         }
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
         stream.getTracks().forEach((t) => t.stop());
         setIsRecording(false);
         if (cancelRecordingRef.current) {
           cancelRecordingRef.current = false;
-          toastError("Dibatalkan!", "Maksimal 30 detik per rekaman");
+          toastError(
+            "Dibatalkan!",
+            `Maksimal ${MAX_VOICE_SECONDS} detik per sesi`,
+          );
           return;
         }
         const blob = new Blob(chunksRef.current, {
@@ -272,10 +289,21 @@ const AIChatRoom = () => {
       recorder.start();
       mediaRecorderRef.current = recorder;
       cancelRecordingRef.current = false;
-      recordingTimeoutRef.current = setTimeout(() => {
-        cancelRecordingRef.current = true;
-        mediaRecorderRef.current?.stop();
-      }, 30000);
+      recordingTimerRef.current = setInterval(() => {
+        voiceSecondsRef.current += 1;
+        setUsedVoiceSeconds(voiceSecondsRef.current);
+        if (voiceSecondsRef.current >= MAX_VOICE_SECONDS) {
+          cancelRecordingRef.current = true;
+          mediaRecorderRef.current?.stop();
+        }
+      }, 1000);
+      recordingTimeoutRef.current = setTimeout(
+        () => {
+          cancelRecordingRef.current = true;
+          mediaRecorderRef.current?.stop();
+        },
+        (MAX_VOICE_SECONDS - voiceSecondsRef.current) * 1000,
+      );
       setIsRecording(true);
     } catch {
       toastError("Gagal!", "Mikrofon tidak tersedia atau ditolak");
@@ -295,7 +323,10 @@ const AIChatRoom = () => {
       aiResponseRef.current = initialDraft();
       setMessages(initialMessages);
       setSessionCost(0);
+      setVoiceCost(0);
       setAiTransactionCount(result.aiSessionCount);
+      voiceSecondsRef.current = 0;
+      setUsedVoiceSeconds(0);
       setDraftTick((t) => t + 1);
     },
     onError: (error) => {
@@ -305,7 +336,7 @@ const AIChatRoom = () => {
 
   const createTransaction = api.transaction.create.useMutation({
     onSuccess: () => {
-      toastSuccess("Berhasil!", "Transaksi berhasil dicatat");
+      toastSuccess("Berhasil!", "Pencatatan berhasil dibuat");
       resetSession.mutate();
     },
     onError: (error) => {
@@ -317,6 +348,10 @@ const AIChatRoom = () => {
 
   const energyPct = Math.min(sessionCost / MAX_SESSION_COST, 1);
   const energyExhausted = sessionCost >= MAX_SESSION_COST;
+  const voiceEnergyPct = Math.min(voiceCost / MAX_VOICE_COST, 1);
+
+  const remainingVoice = Math.max(MAX_VOICE_SECONDS - usedVoiceSeconds, 0);
+  const voiceExhausted = remainingVoice <= 0;
 
   const send = () => {
     const content = input.trim();
@@ -334,7 +369,7 @@ const AIChatRoom = () => {
     );
   }
 
-  if (aiSessionCount >= 50) {
+  if (aiSessionCount >= maxSession) {
     if (isFreeTier) {
       return (
         <div className="mx-auto flex h-[calc(100dvh-96px)] w-full max-w-xl flex-col items-center justify-center gap-4 text-center sm:h-[calc(100dvh-104px)] md:h-[calc(100dvh-56px)] lg:h-[calc(100dvh-64px)]">
@@ -346,7 +381,7 @@ const AIChatRoom = () => {
           </h2>
           <p className="max-w-sm text-sm text-dl-muted">
             Kamu sudah menggunakan {aiSessionCount} sesi chat AI hari ini.
-            Upgrade paketmu untuk terus mencatat transaksi dengan bantuan AI.
+            Upgrade paketmu untuk terus mencatat dengan bantuan AI.
           </p>
           <Button
             onClick={() => router.push("/")}
@@ -368,13 +403,13 @@ const AIChatRoom = () => {
         </h2>
         <p className="max-w-sm text-sm text-dl-muted">
           Kamu sudah menggunakan {aiSessionCount} sesi chat AI hari ini. Lakukan
-          transaksi manual untuk tetap mencatat penjualanmu.
+          pencatatan manual untuk tetap mencatat pemasukan dan pengeluaranmu.
         </p>
         <Button
           onClick={() => router.push("/merchant/manual-transaction")}
           className="bg-gradient-to-r from-dl-gradient-2 to-dl-primary text-white shadow-lg shadow-dl-primary/25 transition-all duration-300 hover:brightness-110"
         >
-          Ke Transaksi Manual
+          Ke Pencatatan Manual
         </Button>
       </div>
     );
@@ -389,51 +424,87 @@ const AIChatRoom = () => {
           </div>
           <div className="flex-1">
             <h1 className="text-lg font-bold text-dl-foreground">
-              Asisten Transaksi AI
+              Asisten Pencatatan AI
             </h1>
-            <p className="text-xs text-dl-muted sm:text-sm">
-              Ceritakan penjualanmu, AI akan mencatatnya.
+            <p className="text-sm font-medium text-dl-primary">
+              Sesi AI: {aiSessionCount}/{maxSession}
             </p>
           </div>
-          <div className="shrink-0 rounded-full bg-dl-primary/10 px-3 py-1 text-xs font-medium text-dl-primary">
-            Sesi AI: {aiSessionCount}/50
-          </div>
         </div>
-        <div className="mt-3 w-full">
-          <div className="mb-1 flex items-center justify-between text-xs text-dl-muted">
-            <div className="flex items-center gap-1.5">
-              <span>Energi AI</span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="Info energi AI"
-                    className="cursor-pointer shrink-0 p-0.5 flex justify-center items-center place-items-center rounded-full bg-dl-primary/10 text-dl-primary transition-colors hover:bg-dl-primary hover:text-white"
+        <div className="mt-3 w-full space-y-2">
+          <div>
+            <div className="mb-1 flex items-center justify-between text-xs text-dl-muted">
+              <div className="flex items-center gap-1.5">
+                <span>Energi AI Chat</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="Info energi AI"
+                      className="cursor-pointer shrink-0 p-0.5 flex justify-center items-center place-items-center rounded-full bg-dl-primary/10 text-dl-primary transition-colors hover:bg-dl-primary hover:text-white"
+                    >
+                      <HelpCircle className="size-3.5" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    sideOffset={8}
+                    className="bg-white text-sm text-dl-foreground sm:w-80 mr-2"
                   >
-                    <HelpCircle className="size-3.5" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent
-                  align="start"
-                  sideOffset={8}
-                  className="bg-white text-sm text-dl-foreground sm:w-80 mr-2"
-                >
-                  AI sudah mengeluarkan {Math.round(energyPct * 100)}% energi
-                  untuk sesi ini. Jangan sampai kehabisan tenaga 😴
-                  <br />
-                  <br />
-                  Kalau energinya habis, cukup buat sesi chat baru untuk lanjut
-                  mencatat.
-                </PopoverContent>
-              </Popover>
+                    AI sudah mengeluarkan {Math.round(energyPct * 100)}% energi
+                    untuk sesi ini. Jangan sampai kehabisan tenaga 😴
+                    <br />
+                    <br />
+                    Kalau energinya habis, cukup buat sesi chat baru untuk
+                    lanjut mencatat.
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <span>{Math.round(energyPct * 100)}%</span>
             </div>
-            <span>{Math.round(energyPct * 100)}%</span>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-dl-border">
+              <div
+                className="h-full bg-gradient-to-r from-dl-gradient-2 to-dl-primary transition-all duration-300"
+                style={{ width: `${energyPct * 100}%` }}
+              />
+            </div>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-dl-border">
-            <div
-              className="h-full bg-gradient-to-r from-dl-gradient-2 to-dl-primary transition-all duration-300"
-              style={{ width: `${energyPct * 100}%` }}
-            />
+          <div>
+            <div className="mb-1 flex items-center justify-between text-xs text-dl-muted">
+              <div className="flex items-center gap-1.5">
+                <span>Energi Voice</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="Info energi voice"
+                      className="cursor-pointer shrink-0 p-0.5 flex justify-center items-center place-items-center rounded-full bg-dl-primary/10 text-dl-primary transition-colors hover:bg-dl-primary hover:text-white"
+                    >
+                      <HelpCircle className="size-3.5" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    sideOffset={8}
+                    className="bg-white text-sm text-dl-foreground sm:w-80 mr-2"
+                  >
+                    Voice sudah mengeluarkan {Math.round(voiceEnergyPct * 100)}%
+                    energi untuk sesi ini.
+                    <br />
+                    <br />
+                    Kalau energinya habis, rekaman suara tidak bisa digunakan,
+                    tapi chat AI tetap bisa dipakai.
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <span>{Math.round(voiceEnergyPct * 100)}%</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-dl-border">
+              <div
+                className="h-full bg-gradient-to-r from-dl-gradient-2 to-dl-primary transition-all duration-300"
+                style={{ width: `${voiceEnergyPct * 100}%` }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -494,8 +565,10 @@ const AIChatRoom = () => {
           <Button
             onClick={() =>
               createTransaction.mutate({
+                category: aiResponseRef.current.category! as
+                  | "INCOME"
+                  | "EXPENSE",
                 purpose: aiResponseRef.current.purpose!,
-                category: "INCOME",
                 amount: aiResponseRef.current.amount!,
                 trx_date: draftDate(aiResponseRef.current) ?? new Date(),
               })
@@ -511,7 +584,7 @@ const AIChatRoom = () => {
             ) : (
               <>
                 <Save className="h-4 w-4" />
-                Catat Transaksi
+                Catat Sekarang
               </>
             )}
           </Button>
@@ -576,31 +649,33 @@ const AIChatRoom = () => {
                     send();
                   }
                 }}
-                placeholder="Jual nasi goreng 50.000, dibayar QRIS"
+                placeholder="Gaji masuk 5.000.000"
                 className="min-h-12 max-h-32 flex-1 resize-none bg-white text-sm"
                 rows={1}
                 maxLength={200}
               />
             )}
-            <Button
-              onClick={isRecording ? stopRecording : startRecording}
-              disabled={transcribe.isPending}
-              className={cn(
-                "h-12 w-12 shrink-0 transition-all duration-300",
-                isRecording
-                  ? "bg-dl-error text-white shadow-lg shadow-dl-error/40 animate-pulse"
-                  : "bg-dl-primary/10 text-dl-primary hover:bg-dl-primary/20",
-              )}
-              aria-label={isRecording ? "Berhenti merekam" : "Rekam suara"}
-            >
-              {transcribe.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : isRecording ? (
-                <MicOff className="h-4 w-4" />
-              ) : (
-                <Mic className="h-4 w-4" />
-              )}
-            </Button>
+            {!voiceExhausted && (
+              <Button
+                onClick={isRecording ? stopRecording : startRecording}
+                disabled={transcribe.isPending}
+                className={cn(
+                  "h-12 w-12 shrink-0 transition-all duration-300",
+                  isRecording
+                    ? "bg-dl-error text-white shadow-lg shadow-dl-error/40 animate-pulse"
+                    : "bg-dl-primary/10 text-dl-primary hover:bg-dl-primary/20",
+                )}
+                aria-label={isRecording ? "Berhenti merekam" : "Rekam suara"}
+              >
+                {transcribe.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : isRecording ? (
+                  <MicOff className="h-4 w-4" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
+              </Button>
+            )}
             <Button
               onClick={send}
               disabled={!input.trim() || sendMessage.isPending}
@@ -610,11 +685,6 @@ const AIChatRoom = () => {
               <Send className="h-4 w-4" />
             </Button>
           </div>
-          <p className="mt-2 flex items-center gap-1 text-xs text-dl-muted">
-            <Sparkles className="h-3 w-3" />
-            AI akan mengubah chat menjadi transaksi. Tekan Enter untuk kirim,
-            atau tekan mic untuk merekam suara.
-          </p>
         </div>
       )}
     </div>

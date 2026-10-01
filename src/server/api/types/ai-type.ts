@@ -1,4 +1,5 @@
 export type TAIResponse = {
+  category: string;
   purpose: string;
   amount: string;
   trxDate: string;

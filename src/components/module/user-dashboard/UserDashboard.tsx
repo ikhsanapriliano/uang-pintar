@@ -92,6 +92,8 @@ type DateFilterContentProps = {
   onMonthChange: (sel: { year: number; month: number }) => void;
   yearSel: number | undefined;
   onYearChange: (year: number | undefined) => void;
+  onApply: () => void;
+  onReset: () => void;
 };
 
 const DateFilterContent = ({
@@ -103,7 +105,22 @@ const DateFilterContent = ({
   onMonthChange,
   yearSel,
   onYearChange,
+  onApply,
+  onReset,
 }: DateFilterContentProps) => {
+  const [draftMode, setDraftMode] = useState(filterMode);
+  const [draftRange, setDraftRange] = useState(range);
+  const [draftMonth, setDraftMonth] = useState(monthSel);
+  const [draftYear, setDraftYear] = useState(yearSel);
+
+  const apply = () => {
+    onFilterModeChange(draftMode);
+    onRangeChange(draftRange);
+    if (draftMonth) onMonthChange(draftMonth);
+    onYearChange(draftYear ?? CURRENT_YEAR);
+    onApply();
+  };
+
   return (
     <div className="w-full bg-white">
       <div className="flex gap-1 rounded-lg bg-dl-background p-1">
@@ -111,10 +128,10 @@ const DateFilterContent = ({
           <button
             key={mode.value}
             type="button"
-            onClick={() => onFilterModeChange(mode.value)}
+            onClick={() => setDraftMode(mode.value)}
             className={cn(
               "flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-              filterMode === mode.value
+              draftMode === mode.value
                 ? "bg-white text-dl-primary shadow-sm"
                 : "text-dl-muted hover:text-dl-foreground",
             )}
@@ -123,23 +140,23 @@ const DateFilterContent = ({
           </button>
         ))}
       </div>
-      {filterMode === "day" && (
+      {draftMode === "day" && (
         <div className="flex justify-center">
           <Calendar
             mode="range"
-            selected={range}
-            onSelect={onRangeChange}
+            selected={draftRange}
+            onSelect={setDraftRange}
             className="bg-white"
           />
         </div>
       )}
-      {filterMode === "month" && (
+      {draftMode === "month" && (
         <div className="space-y-2 p-3">
           <Select
-            value={String(monthSel?.month ?? 0)}
+            value={String(draftMonth?.month ?? 0)}
             onValueChange={(v) =>
-              onMonthChange({
-                year: monthSel?.year ?? CURRENT_YEAR,
+              setDraftMonth({
+                year: draftMonth?.year ?? CURRENT_YEAR,
                 month: Number(v),
               })
             }
@@ -160,11 +177,11 @@ const DateFilterContent = ({
             </SelectContent>
           </Select>
           <Select
-            value={String(monthSel?.year ?? CURRENT_YEAR)}
+            value={String(draftMonth?.year ?? CURRENT_YEAR)}
             onValueChange={(v) =>
-              onMonthChange({
+              setDraftMonth({
                 year: Number(v),
-                month: monthSel?.month ?? 0,
+                month: draftMonth?.month ?? 0,
               })
             }
           >
@@ -185,11 +202,11 @@ const DateFilterContent = ({
           </Select>
         </div>
       )}
-      {filterMode === "year" && (
+      {draftMode === "year" && (
         <div className="p-3">
           <Select
-            value={String(yearSel ?? CURRENT_YEAR)}
-            onValueChange={(v) => onYearChange(Number(v))}
+            value={String(draftYear ?? CURRENT_YEAR)}
+            onValueChange={(v) => setDraftYear(Number(v))}
           >
             <SelectTrigger className="h-9 w-full cursor-pointer bg-white text-sm">
               <SelectValue />
@@ -208,6 +225,22 @@ const DateFilterContent = ({
           </Select>
         </div>
       )}
+      <div className="border-t border-dl-border p-3">
+        <Button
+          onClick={apply}
+          className="w-full bg-gradient-to-r from-dl-gradient-2 to-dl-primary text-white shadow-lg shadow-dl-primary/25 transition-all duration-300 hover:brightness-110"
+        >
+          Terapkan
+        </Button>
+        <Button
+          variant="outline"
+          onClick={onReset}
+          className="mt-2 w-full border-dl-error/40 text-dl-error hover:bg-dl-error/10 hover:text-dl-error"
+        >
+          <X className="h-4 w-4" />
+          Reset Filter
+        </Button>
+      </div>
     </div>
   );
 };
@@ -294,20 +327,10 @@ const UserDashboard = () => {
           : "Pilih tahun"
         : rangeLabel;
 
-  const hasFilter = Boolean(
-    range?.from ||
-      yearSel ||
-      (monthSel &&
-        (monthSel.year !== CURRENT_MONTH.year ||
-          monthSel.month !== CURRENT_MONTH.month)),
-  );
-
   const resetFilter = () => {
     setRange(undefined);
     setMonthSel(CURRENT_MONTH);
     setYearSel(undefined);
-    setCategory(null);
-    setPage(1);
     setCalendarOpen(false);
     setSheetOpen(false);
     setFilterMode("month");
@@ -370,23 +393,12 @@ const UserDashboard = () => {
       <div className="flex flex-col sm:flex-row flex-wrap sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-dl-foreground">
-            Halo, {session?.user?.firstName ?? "Pedagang"}
+            Halo, {session?.user?.firstName ?? ""}
           </h1>
           <p className="text-sm text-dl-muted">Selamat datang kembali!</p>
         </div>
 
         <div className="flex w-full items-center gap-2 sm:w-auto">
-          {hasFilter && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={resetFilter}
-              className="hidden text-xs text-dl-muted hover:text-dl-error md:inline-flex"
-            >
-              <X className="h-4 w-4" />
-              Reset
-            </Button>
-          )}
           <div className="hidden items-center gap-2 md:flex">
             <Select
               value={category ?? "ALL"}
@@ -421,7 +433,7 @@ const UserDashboard = () => {
                   {filterLabel}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-auto bg-white p-2">
+              <PopoverContent align="end" className="w-[350px] bg-white p-2">
                 <DateFilterContent
                   filterMode={filterMode}
                   onFilterModeChange={(mode) => {
@@ -443,6 +455,8 @@ const UserDashboard = () => {
                     setYearSel(year);
                     setPage(1);
                   }}
+                  onApply={() => setCalendarOpen(false)}
+                  onReset={resetFilter}
                 />
               </PopoverContent>
             </Popover>
@@ -486,15 +500,9 @@ const UserDashboard = () => {
                       setYearSel(year);
                       setPage(1);
                     }}
+                    onApply={() => setSheetOpen(false)}
+                    onReset={resetFilter}
                   />
-                  <Button
-                    variant="outline"
-                    onClick={resetFilter}
-                    className="mt-3 w-full border-dl-error/40 text-dl-error hover:bg-dl-error/10 hover:text-dl-error"
-                  >
-                    <X className="h-4 w-4" />
-                    Reset Filter
-                  </Button>
                 </SheetContent>
               </Sheet>
             ) : (

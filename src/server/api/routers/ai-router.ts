@@ -22,8 +22,8 @@ const transcribeSchema = z.object({
 });
 
 const SYSTEM_PROMPT = `Waktu sekarang: ${new Date().toISOString()}. Ubah input transaksi menjadi JSON. Balas JSON saja:
-{"purpose":string|null,"amount":number|null,"trxDate":string|null,"trxTime":string|null}
-Gunakan null jika data tidak diketahui. purpose adalah keterangan transaksi, amount adalah nominal (angka tanpa format, contoh 50000). trxDate adalah tanggal transaksi format "YYYY-MM-DD" (contoh "2026-05-12"), trxTime adalah jam transaksi format "HH:mm" (contoh "14:30"). Gunakan waktu sekarang sebagai acuan untuk kata seperti "hari ini", "kemarin", "jam 3 sore".`;
+{"category":string|null,"purpose":string|null,"amount":number|null,"trxDate":string|null,"trxTime":string|null}
+Gunakan null jika data tidak diketahui. category adalah "INCOME" jika uang masuk atau "EXPENSE" jika uang keluar. purpose adalah keterangan transaksi, amount adalah nominal (angka tanpa format, contoh 50000). trxDate adalah tanggal transaksi format "YYYY-MM-DD" (contoh "2026-05-12"), trxTime adalah jam transaksi format "HH:mm" (contoh "14:30"). Gunakan waktu sekarang sebagai acuan untuk kata seperti "hari ini", "kemarin", "jam 3 sore".`;
 
 const getOrCreateOpenSession = async (
   db: PrismaClient,
@@ -46,9 +46,13 @@ export const aiRouter = createTRPCRouter({
     const session = await getOrCreateOpenSession(ctx.db, ctx.session.userId);
     const user = await ctx.db.user.findUnique({
       where: { id: ctx.session.userId! },
-      select: { aiSessionCount: true },
+      select: { aiSessionCount: true, maxAISession: true },
     });
-    return { session, aiSessionCount: user?.aiSessionCount ?? 0 };
+    return {
+      session,
+      aiSessionCount: user?.aiSessionCount ?? 0,
+      maxAISession: user?.maxAISession ?? 0,
+    };
   }),
 
   closeAndStartNewSession: protectedProcedure.mutation(async ({ ctx }) => {

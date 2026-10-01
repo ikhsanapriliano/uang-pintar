@@ -1,10 +1,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Loader2, Lock, Mail, Shield, User } from "lucide-react";
+import { Loader2, Lock, LogOut, Mail, Shield, User } from "lucide-react";
 import { z } from "zod";
 import { api } from "@/trpc/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -236,7 +236,7 @@ const UserProfile = () => {
         </Card>
       </div>
 
-      <Card className="lg:max-w-2xl">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-semibold text-dl-foreground">
             <Lock className="h-4 w-4 text-dl-primary" />
@@ -265,6 +265,28 @@ const UserProfile = () => {
             ) : (
               "Kirim Link ke Email"
             )}
+          </Button>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-semibold text-dl-foreground">
+            <LogOut className="h-4 w-4 text-dl-error" />
+            Keluar
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-start gap-3">
+          <p className="text-sm text-dl-muted">
+            Keluar dari akun kamu dan kembali ke halaman login.
+          </p>
+          <Button
+            type="button"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            variant="outline"
+            className="border-dl-error/40 text-dl-error hover:bg-dl-error/10 hover:text-dl-error"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
           </Button>
         </CardContent>
       </Card>
