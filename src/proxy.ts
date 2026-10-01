@@ -33,6 +33,11 @@ export async function proxy(request: NextRequest) {
     if (token?.role === "ADMIN") {
       return NextResponse.redirect(new URL("/tdibmkr", request.url));
     }
+    if (token?.status === "UNVERIFIED") {
+      const url = new URL("/verify-register", request.url);
+      if (token.email) url.searchParams.set("email", token.email);
+      return NextResponse.redirect(url);
+    }
   }
 
   return NextResponse.next();

@@ -1,23 +1,26 @@
 model User {
-  id                 String          @id @default(uuid())
-  email              String          @unique
-  firstName          String
-  lastName           String
-  password           String?
-  aiTransactionCount Int             @default(0)
-  maxAITransaction   Int
-  role               Role            @default(MERCHANT)
-  status             UserStatus      @default(UNVERIFIED)
-  createdAt          DateTime        @default(now()) @map("created_at")
-  updatedAt          DateTime        @updatedAt @map("updated_at")
-  transactions       Transaction[]
-  aiChatSessions     AIChatSession[]
+  id             String          @id @default(uuid())
+  email          String          @unique
+  firstName      String
+  lastName       String
+  password       String?
+  balance        Float           @default(0)
+  aiSessionCount Int             @default(0)
+  maxAISession   Int
+  role           Role            @default(USER)
+  status         UserStatus      @default(UNVERIFIED)
+  package_start  DateTime
+  package_end    DateTime
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  transactions   Transaction[]
+  aiChatSessions AIChatSession[]
 
   @@map("users")
 }
 
 enum Role {
-  MERCHANT
+  USER
 }
 
 enum UserStatus {

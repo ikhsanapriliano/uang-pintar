@@ -74,6 +74,9 @@ export const userRouter = createTRPCRouter({
               firstName: input.first_name,
               lastName: input.last_name,
               password: hash,
+              maxAISession: 20,
+              package_start: new Date(),
+              package_end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
             },
           });
           await sendAndStoreCode({
@@ -228,7 +231,7 @@ export const userRouter = createTRPCRouter({
         if (input.type === "register") {
           await ctx.db.user.update({
             where: { email: input.identifier },
-            data: { status: "FREE_TIER" },
+            data: { status: "UJI_COBA" },
           });
         }
 

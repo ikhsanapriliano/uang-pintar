@@ -44,13 +44,7 @@ export const transactionRouter = createTRPCRouter({
                   },
                 },
                 {
-                  productName: {
-                    contains: input.search,
-                    mode: "insensitive" as const,
-                  },
-                },
-                {
-                  paymentMethod: {
+                  purpose: {
                     contains: input.search,
                     mode: "insensitive" as const,
                   },
@@ -58,9 +52,7 @@ export const transactionRouter = createTRPCRouter({
               ],
             }
           : {}),
-        ...(input.payment_method
-          ? { paymentMethod: input.payment_method }
-          : {}),
+        ...(input.category ? { category: input.category } : {}),
       };
       const [items, total] = await Promise.all([
         ctx.db.transaction.findMany({
@@ -95,18 +87,37 @@ export const transactionRouter = createTRPCRouter({
   summary: protectedProcedure
     .input(transactionSummarySchema)
     .query(async ({ input, ctx }) => {
-      const transactions = await ctx.db.transaction.findMany({
-        where: {
-          userId: ctx.session.userId,
-          trxDate: {
-            ...(input.start_date ? { gte: input.start_date } : {}),
-            ...(input.end_date ? { lte: input.end_date } : {}),
-          },
+      const where = {
+        userId: ctx.session.userId,
+        trxDate: {
+          ...(input.start_date ? { gte: input.start_date } : {}),
+          ...(input.end_date ? { lte: input.end_date } : {}),
         },
-        select: { price: true },
-      });
-      const revenue = transactions.reduce((sum, t) => sum + t.price, 0);
-      return { total: transactions.length, revenue };
+        ...(input.category ? { category: input.category } : {}),
+      };
+      const [transactions, user] = await Promise.all([
+        ctx.db.transaction.findMany({
+          where,
+          select: { amount: true, category: true },
+        }),
+        ctx.db.user.findUnique({
+          where: { id: ctx.session.userId },
+          select: { balance: true },
+        }),
+      ]);
+      const income = transactions.filter((t) => t.category === "INCOME");
+      const expense = transactions.filter((t) => t.category === "EXPENSE");
+      return {
+        balance: user?.balance ?? 0,
+        income: {
+          nominal: income.reduce((sum, t) => sum + t.amount, 0),
+          quantity: income.length,
+        },
+        expense: {
+          nominal: expense.reduce((sum, t) => sum + t.amount, 0),
+          quantity: expense.length,
+        },
+      };
     }),
 
   chart: protectedProcedure
@@ -121,7 +132,7 @@ export const transactionRouter = createTRPCRouter({
           },
         },
         orderBy: { trxDate: "asc" },
-        select: { trxDate: true, price: true },
+        select: { trxDate: true, amount: true },
       });
       const map = new Map<string, number>();
       for (const t of transactions) {
@@ -131,7 +142,7 @@ export const transactionRouter = createTRPCRouter({
           input.group_by === "month"
             ? `${t.trxDate.getFullYear()}-${mm}`
             : `${t.trxDate.getFullYear()}-${mm}-${dd}`;
-        map.set(label, (map.get(label) ?? 0) + t.price);
+        map.set(label, (map.get(label) ?? 0) + t.amount);
       }
       return Array.from(map, ([label, revenue]) => ({ label, revenue }));
     }),
@@ -142,43 +153,71 @@ export const transactionRouter = createTRPCRouter({
       if (!ctx.session.userId) {
         throw new TRPCError({ code: "UNAUTHORIZED" });
       }
-      await ctx.db.transaction.create({
-        data: {
-          userId: ctx.session.userId,
-          trxId: generateTrxId(),
-          trxDate: input.trx_date ?? new Date(),
-          productName: input.product_name,
-          amount: toInt(input.amount),
-          price: toFloat(input.price),
-          paymentMethod: input.payment_method,
-          imageUrl: input.image_url ?? null,
-        },
-      });
+      const amount = toFloat(input.amount);
+      const balanceDelta = input.category === "INCOME" ? amount : -amount;
+      await ctx.db.$transaction([
+        ctx.db.transaction.create({
+          data: {
+            userId: ctx.session.userId,
+            trxId: generateTrxId(),
+            trxDate: input.trx_date ?? new Date(),
+            category: input.category,
+            purpose: input.purpose,
+            amount,
+          },
+        }),
+        ctx.db.user.update({
+          where: { id: ctx.session.userId },
+          data: { balance: { increment: balanceDelta } },
+        }),
+      ]);
     }),
 
   update: protectedProcedure
     .input(transactionUpdateSchema)
     .mutation(async ({ input, ctx }) => {
-      const result = await ctx.db.transaction.updateMany({
+      const existing = await ctx.db.transaction.findFirst({
         where: { id: input.id, userId: ctx.session.userId },
-        data: {
-          trxDate: input.trx_date ?? undefined,
-          productName: input.product_name,
-          amount: toInt(input.amount),
-          price: toFloat(input.price),
-          paymentMethod: input.payment_method,
-          imageUrl: input.image_url ?? null,
-        },
       });
-      if (result.count === 0) throw new TRPCError({ code: "NOT_FOUND" });
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+      const oldDelta =
+        existing.category === "INCOME" ? existing.amount : -existing.amount;
+      const newAmount = toFloat(input.amount);
+      const newDelta = input.category === "INCOME" ? newAmount : -newAmount;
+      await ctx.db.$transaction([
+        ctx.db.transaction.updateMany({
+          where: { id: input.id, userId: ctx.session.userId },
+          data: {
+            trxDate: input.trx_date ?? undefined,
+            category: input.category,
+            purpose: input.purpose,
+            amount: newAmount,
+          },
+        }),
+        ctx.db.user.update({
+          where: { id: ctx.session.userId },
+          data: { balance: { increment: newDelta - oldDelta } },
+        }),
+      ]);
     }),
 
   delete: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))
     .mutation(async ({ input, ctx }) => {
-      const result = await ctx.db.transaction.deleteMany({
+      const existing = await ctx.db.transaction.findFirst({
         where: { id: input.id, userId: ctx.session.userId },
       });
-      if (result.count === 0) throw new TRPCError({ code: "NOT_FOUND" });
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+      const balanceDelta =
+        existing.category === "INCOME" ? -existing.amount : existing.amount;
+      await ctx.db.$transaction([
+        ctx.db.transaction.deleteMany({
+          where: { id: input.id, userId: ctx.session.userId },
+        }),
+        ctx.db.user.update({
+          where: { id: ctx.session.userId },
+          data: { balance: { increment: balanceDelta } },
+        }),
+      ]);
     }),
 });

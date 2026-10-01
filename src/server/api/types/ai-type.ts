@@ -1,8 +1,6 @@
 export type TAIResponse = {
-  productName: string;
+  purpose: string;
   amount: string;
-  price: number;
-  paymentMethod: string;
   trxDate: string;
   trxTime: string;
 };

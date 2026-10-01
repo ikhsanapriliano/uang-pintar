@@ -78,15 +78,13 @@ const draftDate = (data: Partial<TAIResponse>): Date | null => {
 };
 
 const isComplete = (data: Partial<TAIResponse>) =>
-  !!data.productName && !!data.amount && !!data.price && !!data.paymentMethod;
+  !!data.purpose && !!data.amount;
 
 const formatResponse = (data: Partial<TAIResponse>) => {
   const date = draftDate(data);
   return `Berikut data transaksi kamu:
-- Nama Produk: ${data.productName ?? "-"}
-- Jumlah: ${data.amount ?? "-"} pcs
-- Harga: ${formatCurrency(data.price || 0) ?? "-"}
-- Metode Pembayaran: ${data.paymentMethod ?? "-"}
+- Keterangan: ${data.purpose ?? "-"}
+- Nominal: ${formatCurrency(Number(data.amount) || 0) ?? "-"}
 - Tanggal: ${date ? formatDateWithTime(date.toISOString()) : "-"}
 ${isComplete(data) ? "\n Data transaksi sudah lengkap, kamu bisa klik tombol Catat Transaksi untuk menyimpan jika sudah benar." : ""}`;
 };
@@ -110,7 +108,7 @@ const AIChatRoom = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [sessionCost, setSessionCost] = useState(0);
-  const [aiTransactionCount, setAiTransactionCount] = useState(0);
+  const [aiSessionCount, setAiTransactionCount] = useState(0);
   const aiResponseRef = useRef<TransactionDraft>(initialDraft());
   const [, setDraftTick] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
@@ -131,7 +129,7 @@ const AIChatRoom = () => {
   const getOrCreateSession = api.ai.getOrCreateSession.useMutation({
     onSuccess: (result) => {
       const session = result.session;
-      setAiTransactionCount(result.aiTransactionCount);
+      setAiTransactionCount(result.aiSessionCount);
       let lastId = 1;
       const draft = initialDraft();
       const loaded: Message[] = [...initialMessages];
@@ -297,7 +295,7 @@ const AIChatRoom = () => {
       aiResponseRef.current = initialDraft();
       setMessages(initialMessages);
       setSessionCost(0);
-      setAiTransactionCount(result.aiTransactionCount);
+      setAiTransactionCount(result.aiSessionCount);
       setDraftTick((t) => t + 1);
     },
     onError: (error) => {
@@ -336,7 +334,7 @@ const AIChatRoom = () => {
     );
   }
 
-  if (aiTransactionCount >= 50) {
+  if (aiSessionCount >= 50) {
     if (isFreeTier) {
       return (
         <div className="mx-auto flex h-[calc(100dvh-96px)] w-full max-w-xl flex-col items-center justify-center gap-4 text-center sm:h-[calc(100dvh-104px)] md:h-[calc(100dvh-56px)] lg:h-[calc(100dvh-64px)]">
@@ -347,7 +345,7 @@ const AIChatRoom = () => {
             Jatah AI gratis kamu sudah habis
           </h2>
           <p className="max-w-sm text-sm text-dl-muted">
-            Kamu sudah menggunakan {aiTransactionCount} sesi chat AI hari ini.
+            Kamu sudah menggunakan {aiSessionCount} sesi chat AI hari ini.
             Upgrade paketmu untuk terus mencatat transaksi dengan bantuan AI.
           </p>
           <Button
@@ -369,8 +367,8 @@ const AIChatRoom = () => {
           Jatah AI kamu sudah habis untuk hari ini
         </h2>
         <p className="max-w-sm text-sm text-dl-muted">
-          Kamu sudah menggunakan {aiTransactionCount} sesi chat AI hari ini.
-          Lakukan transaksi manual untuk tetap mencatat penjualanmu.
+          Kamu sudah menggunakan {aiSessionCount} sesi chat AI hari ini. Lakukan
+          transaksi manual untuk tetap mencatat penjualanmu.
         </p>
         <Button
           onClick={() => router.push("/merchant/manual-transaction")}
@@ -398,7 +396,7 @@ const AIChatRoom = () => {
             </p>
           </div>
           <div className="shrink-0 rounded-full bg-dl-primary/10 px-3 py-1 text-xs font-medium text-dl-primary">
-            Sesi AI: {aiTransactionCount}/50
+            Sesi AI: {aiSessionCount}/50
           </div>
         </div>
         <div className="mt-3 w-full">
@@ -496,10 +494,9 @@ const AIChatRoom = () => {
           <Button
             onClick={() =>
               createTransaction.mutate({
-                product_name: aiResponseRef.current.productName!,
+                purpose: aiResponseRef.current.purpose!,
+                category: "INCOME",
                 amount: aiResponseRef.current.amount!,
-                price: aiResponseRef.current.price!,
-                payment_method: aiResponseRef.current.paymentMethod!,
                 trx_date: draftDate(aiResponseRef.current) ?? new Date(),
               })
             }

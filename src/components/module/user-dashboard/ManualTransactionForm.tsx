@@ -2,9 +2,16 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Loader2, Save, CalendarDays, Clock } from "lucide-react";
+import {
+  Loader2,
+  Save,
+  CalendarDays,
+  Clock,
+  TrendingUp,
+  TrendingDown,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -42,8 +49,8 @@ import {
   type TransactionCreateSchema,
 } from "@/schema/transaction-schema";
 import { api } from "@/trpc/react";
-
-const paymentMethods = ["Tunai", "QRIS", "Transfer", "Lainnya"];
+import { cn } from "@/lib/utils";
+import InputMoney from "@/components/shared/InputMoney";
 
 const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
 const minutes = Array.from({ length: 60 }, (_, i) =>
@@ -52,24 +59,28 @@ const minutes = Array.from({ length: 60 }, (_, i) =>
 
 const ManualTransactionForm = () => {
   const router = useRouter();
-  const [customPaymentMethod, setCustomPaymentMethod] = useState("");
-  const [trxTime, setTrxTime] = useState(() => {
-    const now = new Date();
-    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  });
+  const [mounted, setMounted] = useState(false);
+  const [trxTime, setTrxTime] = useState("--:--");
   const form = useForm<TransactionCreateSchema>({
     resolver: zodResolver(transactionCreateSchema),
     defaultValues: {
-      product_name: "",
+      purpose: "",
+      category: "INCOME",
       amount: "",
-      price: "",
-      payment_method: "",
-      trx_date: new Date(),
-      image_url: null,
     },
   });
 
-  const isOtherMethod = form.watch("payment_method") === "Lainnya";
+  const category = form.watch("category");
+
+  useEffect(() => {
+    const now = new Date();
+    setTrxTime(
+      `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+    );
+    form.setValue("trx_date", now);
+    setMounted(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const createTransaction = api.transaction.create.useMutation({
     onSuccess: () => {
@@ -106,26 +117,63 @@ const ManualTransactionForm = () => {
                 const [hours, minutes] = trxTime.split(":").map(Number);
                 const trxDate = values.trx_date ?? new Date();
                 trxDate.setHours(hours ?? 0, minutes ?? 0, 0, 0);
-                createTransaction.mutate({
-                  ...values,
-                  trx_date: trxDate,
-                  payment_method:
-                    values.payment_method === "Lainnya"
-                      ? customPaymentMethod.trim()
-                      : values.payment_method,
-                });
+                createTransaction.mutate({ ...values, trx_date: trxDate });
               })}
               className="space-y-4"
             >
               <FormField
                 control={form.control}
-                name="product_name"
+                name="category"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Nama Produk</FormLabel>
+                    <FormLabel>Kategori</FormLabel>
+                    <FormControl>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => field.onChange("INCOME")}
+                          className={cn(
+                            "flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                            field.value === "INCOME"
+                              ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                              : "border-dl-border bg-white text-dl-muted hover:border-dl-border/60",
+                          )}
+                        >
+                          <TrendingUp className="h-4 w-4" />
+                          Pemasukan
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => field.onChange("EXPENSE")}
+                          className={cn(
+                            "flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                            field.value === "EXPENSE"
+                              ? "border-rose-500 bg-rose-50 text-rose-700"
+                              : "border-dl-border bg-white text-dl-muted hover:border-dl-border/60",
+                          )}
+                        >
+                          <TrendingDown className="h-4 w-4" />
+                          Pengeluaran
+                        </button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="purpose"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Keterangan</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Contoh: Nasi Goreng"
+                        placeholder={
+                          category === "INCOME"
+                            ? "Contoh: Gajian"
+                            : "Contoh: Bayar Listrik"
+                        }
                         className="bg-white"
                         {...field}
                       />
@@ -139,69 +187,15 @@ const ManualTransactionForm = () => {
                 name="amount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Jumlah (Qty)</FormLabel>
+                    <FormLabel>Nominal (Rp)</FormLabel>
                     <FormControl>
-                      <Input
-                        inputMode="numeric"
-                        placeholder="Contoh: 2"
-                        className="bg-white"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Harga (Rp)</FormLabel>
-                    <FormControl>
-                      <Input
-                        inputMode="decimal"
-                        placeholder="Contoh: 50000"
-                        className="bg-white"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="payment_method"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Metode Pembayaran</FormLabel>
-                    <FormControl>
-                      <Select
+                      <InputMoney
+                        placeholder="50.000"
                         value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <SelectTrigger className="w-full bg-white">
-                          <SelectValue placeholder="Pilih metode pembayaran" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {paymentMethods.map((method) => (
-                            <SelectItem key={method} value={method}>
-                              {method}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onChange={(e: any) => field.onChange(Number(e) || 0)}
+                      />
                     </FormControl>
                     <FormMessage />
-                    {isOtherMethod && (
-                      <Input
-                        placeholder="Tulis metode pembayaran"
-                        className="mt-2 bg-white"
-                        value={customPaymentMethod}
-                        onChange={(e) => setCustomPaymentMethod(e.target.value)}
-                      />
-                    )}
                   </FormItem>
                 )}
               />
@@ -210,7 +204,10 @@ const ManualTransactionForm = () => {
                 name="trx_date"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel>Tanggal Transaksi</FormLabel>
+                    <FormLabel>
+                      Tanggal{" "}
+                      {category === "INCOME" ? "Pemasukan" : "Pengeluaran"}
+                    </FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
                         <FormControl>
@@ -242,7 +239,10 @@ const ManualTransactionForm = () => {
                 )}
               />
               <FormItem className="flex flex-col">
-                <FormLabel>Jam Transaksi (WIB)</FormLabel>
+                <FormLabel>
+                  Jam {category === "INCOME" ? "Pemasukan" : "Pengeluaran"}{" "}
+                  (WIB)
+                </FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
                     <FormControl>

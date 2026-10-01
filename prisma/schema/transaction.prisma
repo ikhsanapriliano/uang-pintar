@@ -1,16 +1,19 @@
 model Transaction {
-    id            String   @id @default(uuid())
-    trxId         String   @unique
-    userId        String
-    trxDate       DateTime @default(now())
-    productName   String
-    amount        Int
-    price         Float
-    paymentMethod String
-    imageUrl      String?
-    createdAt     DateTime @default(now()) @map("created_at")
-    updatedAt     DateTime @updatedAt @map("updated_at")
-    user          User     @relation(fields: [userId], references: [id])
+    id        String              @id @default(uuid())
+    trxId     String              @unique
+    userId    String
+    trxDate   DateTime            @default(now())
+    category  TransactionCategory
+    purpose   String
+    amount    Float
+    createdAt DateTime            @default(now()) @map("created_at")
+    updatedAt DateTime            @updatedAt @map("updated_at")
+    user      User                @relation(fields: [userId], references: [id])
 
     @@map("transactions")
+}
+
+enum TransactionCategory {
+    INCOME
+    EXPENSE
 }

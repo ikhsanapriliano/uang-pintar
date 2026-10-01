@@ -40,52 +40,21 @@ import {
 } from "@/lib/utils";
 import {
   Wallet,
-  ReceiptText,
+  TrendingUp,
+  TrendingDown,
   CalendarDays,
   X,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Loader2,
-  ChartLine,
   History,
 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { useDebounced } from "@/lib/debounced";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
-import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
 import TransactionActions from "./TransactionActions";
-
-const chartConfig = {
-  revenue: { label: "Pendapatan", color: "#2563EB" },
-} satisfies ChartConfig;
-
-const formatChartTick = (label: string) => {
-  const [y, m, d] = label.split("-");
-  const date = new Date(Number(y), Number(m) - 1, Number(d ?? 1));
-  return d
-    ? date.toLocaleDateString("id-ID", { day: "numeric", month: "short" })
-    : date.toLocaleDateString("id-ID", { month: "short" });
-};
-
-const formatChartTooltipLabel = (label: string) => {
-  const [y, m, d] = label.split("-");
-  const date = new Date(Number(y), Number(m) - 1, Number(d ?? 1));
-  return d
-    ? date.toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
-    : date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
-};
 
 const FILTER_MODES = [
   { value: "day", label: "Hari" },
@@ -252,7 +221,7 @@ const UserDashboard = () => {
   const [yearSel, setYearSel] = useState<number | undefined>(undefined);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [view, setView] = useState<"summary" | "chart">("summary");
+  const [category, setCategory] = useState<"INCOME" | "EXPENSE" | null>(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [searchInput, setSearchInput] = useState("");
@@ -293,20 +262,16 @@ const UserDashboard = () => {
     api.transaction.summary.useQuery({
       start_date: startDate,
       end_date: effectiveEndDate ? new Date(effectiveEndDate) : undefined,
+      category: category ?? undefined,
     });
   const { data: list, isLoading: isLoadingList } =
     api.transaction.findAll.useQuery({
       page,
       limit,
       search,
+      category: category ?? undefined,
       start_date: startDate,
       end_date: effectiveEndDate ? new Date(effectiveEndDate) : undefined,
-    });
-  const { data: chartData, isLoading: isLoadingChart } =
-    api.transaction.chart.useQuery({
-      start_date: startDate,
-      end_date: effectiveEndDate ? new Date(effectiveEndDate) : undefined,
-      group_by: filterMode === "year" ? "month" : "day",
     });
 
   const rangeLabel =
@@ -341,6 +306,7 @@ const UserDashboard = () => {
     setRange(undefined);
     setMonthSel(CURRENT_MONTH);
     setYearSel(undefined);
+    setCategory(null);
     setPage(1);
     setCalendarOpen(false);
     setSheetOpen(false);
@@ -348,106 +314,56 @@ const UserDashboard = () => {
   };
 
   const summaryCards = (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm font-medium text-dl-muted">
-            <Wallet className="h-4 w-4 text-dl-primary" />
-            Pendapatan
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoadingSummary ? (
-            <Loader2 className="h-6 w-6 animate-spin text-dl-muted" />
-          ) : (
-            <p className="text-2xl font-bold text-dl-foreground">
-              {formatCurrency(summary?.revenue ?? 0)}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm font-medium text-dl-muted">
-            <ReceiptText className="h-4 w-4 text-dl-primary" />
-            Total Transaksi
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoadingSummary ? (
-            <Loader2 className="h-6 w-6 animate-spin text-dl-muted" />
-          ) : (
-            <p className="text-2xl font-bold text-dl-foreground">
-              {summary?.total ?? 0}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  const chartCard = (
-    <Card className="gap-0">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base font-semibold text-dl-foreground">
-          <ChartLine className="h-4 w-4 text-dl-primary" />
-          Pendapatan {filterMode === "year" ? "per Bulan" : "per Hari"}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isLoadingChart ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-dl-muted" />
-          </div>
-        ) : chartData?.length ? (
-          <div className="overflow-x-auto">
-            <div className="min-w-[1000px]">
-              <ChartContainer config={chartConfig} className="aspect-[16/7]">
-                <LineChart data={chartData} accessibilityLayer>
-                  <CartesianGrid vertical={false} />
-                  <XAxis
-                    dataKey="label"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    tickFormatter={formatChartTick}
-                  />
-                  <ChartTooltip
-                    cursor={false}
-                    content={
-                      <ChartTooltipContent
-                        labelFormatter={(label) =>
-                          formatChartTooltipLabel(String(label))
-                        }
-                        formatter={(value) => formatCurrency(Number(value))}
-                      />
-                    }
-                  />
-                  <Line
-                    dataKey="revenue"
-                    type="monotone"
-                    stroke="var(--color-revenue)"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ChartContainer>
-            </div>
-          </div>
-        ) : (
-          <p className="py-10 text-center text-sm text-dl-muted">
-            Belum ada data
+    <Card>
+      <CardContent className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="flex items-center gap-1.5 text-xs font-medium text-dl-muted">
+            <Wallet className="h-3.5 w-3.5 text-dl-primary" />
+            Saldo
           </p>
-        )}
+          {isLoadingSummary ? (
+            <Loader2 className="mt-1 h-5 w-5 animate-spin text-dl-muted" />
+          ) : (
+            <p className="text-2xl font-bold text-dl-foreground">
+              {formatCurrency(summary?.balance ?? 0)}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col gap-3 border-t border-dl-border pt-4 sm:flex-row sm:items-center sm:gap-8 sm:border-l sm:border-t-0 sm:pl-8 sm:pt-0">
+          {isLoadingSummary ? (
+            <Loader2 className="h-5 w-5 animate-spin text-dl-muted" />
+          ) : (
+            <>
+              <div>
+                <p className="flex items-center gap-1.5 text-xs font-medium text-dl-muted">
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                  Pemasukan
+                </p>
+                <p className="mt-0.5 text-base font-semibold text-emerald-700">
+                  {formatCurrency(summary?.income.nominal ?? 0)}
+                </p>
+                <p className="text-xs text-dl-muted">
+                  {summary?.income.quantity ?? 0} transaksi
+                </p>
+              </div>
+              <div>
+                <p className="flex items-center gap-1.5 text-xs font-medium text-dl-muted">
+                  <TrendingDown className="h-3.5 w-3.5 text-rose-600" />
+                  Pengeluaran
+                </p>
+                <p className="mt-0.5 text-base font-semibold text-rose-700">
+                  {formatCurrency(summary?.expense.nominal ?? 0)}
+                </p>
+                <p className="text-xs text-dl-muted">
+                  {summary?.expense.quantity ?? 0} transaksi
+                </p>
+              </div>
+            </>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
-
-  const mobileViews = [
-    { value: "summary", label: "Ringkasan" },
-    { value: "chart", label: "Grafik" },
-  ] as const;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -471,54 +387,65 @@ const UserDashboard = () => {
               Reset
             </Button>
           )}
-          <div className="hidden md:block">
-            {mounted ? (
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 border-dl-border text-xs font-medium text-dl-foreground"
-                  >
-                    <CalendarDays className="h-4 w-4 text-dl-primary" />
-                    {filterLabel}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-auto bg-white p-2">
-                  <DateFilterContent
-                    filterMode={filterMode}
-                    onFilterModeChange={(mode) => {
-                      setFilterMode(mode);
-                      setPage(1);
-                    }}
-                    range={range}
-                    onRangeChange={(selected) => {
-                      setRange(selected);
-                      setPage(1);
-                    }}
-                    monthSel={monthSel}
-                    onMonthChange={(sel) => {
-                      setMonthSel(sel);
-                      setPage(1);
-                    }}
-                    yearSel={yearSel}
-                    onYearChange={(year) => {
-                      setYearSel(year);
-                      setPage(1);
-                    }}
-                  />
-                </PopoverContent>
-              </Popover>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 border-dl-border text-xs font-medium text-dl-foreground"
-              >
-                <CalendarDays className="h-4 w-4 text-dl-primary" />
-                {filterLabel}
-              </Button>
-            )}
+          <div className="hidden items-center gap-2 md:flex">
+            <Select
+              value={category ?? "ALL"}
+              onValueChange={(v) => {
+                setCategory(v === "ALL" ? null : (v as "INCOME" | "EXPENSE"));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-8 w-[150px] cursor-pointer border-dl-border bg-white text-xs font-medium text-dl-foreground">
+                <SelectValue placeholder="Semua Kategori" />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="ALL" className="cursor-pointer">
+                  Semua Kategori
+                </SelectItem>
+                <SelectItem value="INCOME" className="cursor-pointer">
+                  Pemasukan
+                </SelectItem>
+                <SelectItem value="EXPENSE" className="cursor-pointer">
+                  Pengeluaran
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 border-dl-border text-xs font-medium text-dl-foreground"
+                >
+                  <CalendarDays className="h-4 w-4 text-dl-primary" />
+                  {filterLabel}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-auto bg-white p-2">
+                <DateFilterContent
+                  filterMode={filterMode}
+                  onFilterModeChange={(mode) => {
+                    setFilterMode(mode);
+                    setPage(1);
+                  }}
+                  range={range}
+                  onRangeChange={(selected) => {
+                    setRange(selected);
+                    setPage(1);
+                  }}
+                  monthSel={monthSel}
+                  onMonthChange={(sel) => {
+                    setMonthSel(sel);
+                    setPage(1);
+                  }}
+                  yearSel={yearSel}
+                  onYearChange={(year) => {
+                    setYearSel(year);
+                    setPage(1);
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="w-full md:hidden">
@@ -582,33 +509,44 @@ const UserDashboard = () => {
             )}
           </div>
         </div>
+
+        <div className="flex gap-2 md:hidden">
+          {(
+            [
+              { value: null, label: "Semua" },
+              { value: "INCOME", label: "Pemasukan" },
+              { value: "EXPENSE", label: "Pengeluaran" },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.label}
+              type="button"
+              onClick={() => {
+                setCategory(opt.value);
+                setPage(1);
+              }}
+              className={cn(
+                "cursor-pointer rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                category === opt.value
+                  ? opt.value === "INCOME"
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                    : opt.value === "EXPENSE"
+                      ? "border-rose-500 bg-rose-50 text-rose-700"
+                      : "border-dl-primary bg-dl-primary/10 text-dl-primary"
+                  : "border-dl-border bg-white text-dl-muted hover:text-dl-foreground",
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="hidden space-y-4 md:block sm:space-y-6">
         {summaryCards}
-        {chartCard}
       </div>
 
-      <div className="space-y-4 md:hidden">
-        <div className="flex gap-1 rounded-lg bg-dl-background p-1">
-          {mobileViews.map((v) => (
-            <button
-              key={v.value}
-              type="button"
-              onClick={() => setView(v.value)}
-              className={cn(
-                "flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                view === v.value
-                  ? "bg-white text-dl-primary shadow-sm"
-                  : "text-dl-muted hover:text-dl-foreground",
-              )}
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
-        {view === "summary" ? summaryCards : chartCard}
-      </div>
+      <div className="space-y-4 md:hidden">{summaryCards}</div>
 
       <Card className="gap-0">
         <CardHeader>
@@ -643,13 +581,13 @@ const UserDashboard = () => {
                         ID Transaksi
                       </TableHead>
                       <TableHead className="px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
-                        Produk
+                        Keterangan
                       </TableHead>
                       <TableHead className="px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
-                        Jumlah
+                        Kategori
                       </TableHead>
                       <TableHead className="px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
-                        Metode Pembayaran
+                        Nominal
                       </TableHead>
                       <TableHead className="px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
                         Tanggal Transaksi
@@ -679,15 +617,31 @@ const UserDashboard = () => {
                             {item.trxId}
                           </TableCell>
                           <TableCell className="px-4 py-3 font-medium text-dl-foreground">
-                            {item.productName}
-                          </TableCell>
-                          <TableCell className="px-4 py-3 font-semibold text-dl-foreground tabular-nums">
-                            {formatCurrency(item.price)}
+                            {item.purpose}
                           </TableCell>
                           <TableCell className="px-4 py-3">
-                            <span className="inline-flex rounded-full border border-dl-border bg-white px-2.5 py-0.5 text-xs font-medium text-dl-foreground">
-                              {item.paymentMethod}
+                            <span
+                              className={cn(
+                                "inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium",
+                                item.category === "INCOME"
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                  : "border-rose-200 bg-rose-50 text-rose-700",
+                              )}
+                            >
+                              {item.category === "INCOME"
+                                ? "Pemasukan"
+                                : "Pengeluaran"}
                             </span>
+                          </TableCell>
+                          <TableCell
+                            className={cn(
+                              "px-4 py-3 font-semibold tabular-nums",
+                              item.category === "INCOME"
+                                ? "text-emerald-700"
+                                : "text-rose-700",
+                            )}
+                          >
+                            {formatCurrency(item.amount)}
                           </TableCell>
                           <TableCell className="px-4 py-3 text-dl-foreground">
                             {formatDateWithTime(item.trxDate.toISOString())}
@@ -713,26 +667,43 @@ const UserDashboard = () => {
                 ) : (
                   list?.items.map((item) => (
                     <details key={item.id} className="group">
-                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-6 py-4 [&::-webkit-details-marker]:hidden">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-6 py-3 [&::-webkit-details-marker]:hidden">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-dl-foreground">
-                            {item.productName}
+                          <p className="truncate text-sm font-medium text-dl-foreground">
+                            {item.purpose}
                           </p>
-                          <p className="text-xs text-dl-muted">{item.trxId}</p>
+                          <p
+                            className={cn(
+                              "mt-0.5 text-xs tabular-nums",
+                              item.category === "INCOME"
+                                ? "text-emerald-700"
+                                : "text-rose-700",
+                            )}
+                          >
+                            {formatCurrency(item.amount)}
+                          </p>
                         </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span className="text-sm font-semibold text-dl-foreground">
-                            {formatCurrency(item.price)}
-                          </span>
-                          <ChevronDown className="h-4 w-4 text-dl-muted transition-transform group-open:rotate-180" />
-                        </div>
+                        <ChevronDown className="h-4 w-4 shrink-0 text-dl-muted transition-transform group-open:rotate-180" />
                       </summary>
-                      <div className="px-6 pb-4">
-                        <dl className="space-y-2 text-sm">
+                      <div className="px-6 pb-3">
+                        <dl className="space-y-1.5 text-xs">
                           <div className="flex items-center justify-between gap-3">
-                            <dt className="text-dl-muted">Metode</dt>
-                            <dd className="text-dl-foreground">
-                              {item.paymentMethod}
+                            <dt className="text-dl-muted">ID Transaksi</dt>
+                            <dd className="text-dl-foreground">{item.trxId}</dd>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <dt className="text-dl-muted">Kategori</dt>
+                            <dd
+                              className={cn(
+                                "font-medium",
+                                item.category === "INCOME"
+                                  ? "text-emerald-700"
+                                  : "text-rose-700",
+                              )}
+                            >
+                              {item.category === "INCOME"
+                                ? "Pemasukan"
+                                : "Pengeluaran"}
                             </dd>
                           </div>
                           <div className="flex items-center justify-between gap-3">
