@@ -357,30 +357,34 @@ const UserDashboard = () => {
             <Loader2 className="h-5 w-5 animate-spin text-dl-muted" />
           ) : (
             <>
-              <div>
-                <p className="flex items-center gap-1.5 text-xs font-medium text-dl-muted">
-                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                  Pemasukan
-                </p>
-                <p className="mt-0.5 text-base font-semibold text-emerald-700">
-                  {formatCurrency(summary?.income.nominal ?? 0)}
-                </p>
-                <p className="text-xs text-dl-muted">
-                  {summary?.income.quantity ?? 0} transaksi
-                </p>
-              </div>
-              <div>
-                <p className="flex items-center gap-1.5 text-xs font-medium text-dl-muted">
-                  <TrendingDown className="h-3.5 w-3.5 text-rose-600" />
-                  Pengeluaran
-                </p>
-                <p className="mt-0.5 text-base font-semibold text-rose-700">
-                  {formatCurrency(summary?.expense.nominal ?? 0)}
-                </p>
-                <p className="text-xs text-dl-muted">
-                  {summary?.expense.quantity ?? 0} transaksi
-                </p>
-              </div>
+              {category !== "EXPENSE" && (
+                <div>
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-dl-muted">
+                    <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                    Pemasukan
+                  </p>
+                  <p className="mt-0.5 text-base font-semibold text-emerald-700">
+                    {formatCurrency(summary?.income.nominal ?? 0)}
+                  </p>
+                  <p className="text-xs text-dl-muted">
+                    {summary?.income.quantity ?? 0} transaksi
+                  </p>
+                </div>
+              )}
+              {category !== "INCOME" && (
+                <div>
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-dl-muted">
+                    <TrendingDown className="h-3.5 w-3.5 text-rose-600" />
+                    Pengeluaran
+                  </p>
+                  <p className="mt-0.5 text-base font-semibold text-rose-700">
+                    {formatCurrency(summary?.expense.nominal ?? 0)}
+                  </p>
+                  <p className="text-xs text-dl-muted">
+                    {summary?.expense.quantity ?? 0} transaksi
+                  </p>
+                </div>
+              )}
             </>
           )}
         </div>
