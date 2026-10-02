@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { formatDateWithTime } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDateWithTime } from "@/lib/utils";
 import { useDebounced } from "@/lib/debounced";
 import { api } from "@/trpc/react";
 
@@ -89,6 +89,9 @@ const UserData = () => {
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Paket</TableHead>
+                  <TableHead>Saldo</TableHead>
+                  <TableHead>AI Session</TableHead>
                   <TableHead>Dibuat</TableHead>
                 </TableRow>
               </TableHeader>
@@ -96,7 +99,7 @@ const UserData = () => {
                 {isLoading ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={8}
                       className="h-24 text-center text-dl-muted"
                     >
                       <Loader2 className="mx-auto h-6 w-6 animate-spin" />
@@ -127,6 +130,16 @@ const UserData = () => {
                           {statusLabel[item.status] ?? item.status}
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-dl-foreground">
+                        {formatDate(item.packageStart.toISOString())} -{" "}
+                        {formatDate(item.packageRnd.toISOString())}
+                      </TableCell>
+                      <TableCell className="text-dl-foreground">
+                        {formatCurrency(item.balance)}
+                      </TableCell>
+                      <TableCell className="text-dl-foreground">
+                        {item.aiSessionCount}/{item.maxAISession}
+                      </TableCell>
                       <TableCell className="text-dl-muted">
                         {formatDateWithTime(item.createdAt.toISOString())}
                       </TableCell>
@@ -135,7 +148,7 @@ const UserData = () => {
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={8}
                       className="h-24 text-center text-dl-muted"
                     >
                       Tidak ada data user
