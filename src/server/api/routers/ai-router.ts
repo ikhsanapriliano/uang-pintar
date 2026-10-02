@@ -213,8 +213,25 @@ export const aiRouter = createTRPCRouter({
           totalCost: aiCost + transcriptionCost,
         };
       });
+      const [detailAgg, transcriptionAgg] = await Promise.all([
+        ctx.db.aIChatSessionDetail.aggregate({
+          where: { session: where },
+          _sum: { cost: true },
+        }),
+        ctx.db.aIChatTranscription.aggregate({
+          where: { session: where },
+          _sum: { cost: true },
+        }),
+      ]);
+      const summary = {
+        aiCost: detailAgg._sum.cost ?? 0,
+        transcriptionCost: transcriptionAgg._sum.cost ?? 0,
+        totalCost:
+          (detailAgg._sum.cost ?? 0) + (transcriptionAgg._sum.cost ?? 0),
+      };
       return {
         items,
+        summary,
         meta: {
           page: input.page,
           limit: input.limit,

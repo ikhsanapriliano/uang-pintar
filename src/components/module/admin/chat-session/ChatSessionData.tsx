@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Eye, Loader2, Search } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Loader2,
+  Search,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,8 +28,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
-import { formatDateWithTime, formatStandardNumber } from "@/lib/utils";
+import {
+  formatDate,
+  formatDateWithTime,
+  formatStandardNumber,
+} from "@/lib/utils";
 import { useDebounced } from "@/lib/debounced";
 import { api } from "@/trpc/react";
 import InputMoney from "@/components/shared/InputMoney";
@@ -63,14 +80,60 @@ const CostCell = ({
   </TableCell>
 );
 
+const toDateInput = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+const DateFilterInput = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) => {
+  const date = value ? new Date(`${value}T00:00:00`) : undefined;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className="h-9 w-[160px] justify-start gap-2 border-dl-border bg-white text-left text-sm font-normal text-dl-foreground"
+        >
+          <CalendarDays className="h-4 w-4 text-dl-primary" />
+          {date ? formatDate(date.toISOString()) : "Pilih tanggal"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto bg-white p-0">
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={(d) => onChange(d ? toDateInput(d) : "")}
+          className="bg-white"
+        />
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+const monthBounds = () => {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { start: toDateInput(start), end: toDateInput(end) };
+};
+
 const ChatSessionData = () => {
   const router = useRouter();
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [searchInput, setSearchInput] = useState("");
   const search = useDebounced(searchInput);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const initial = monthBounds();
+  const [startDate, setStartDate] = useState(initial.start);
+  const [endDate, setEndDate] = useState(initial.end);
   const [rate, setRate] = useState(18000);
 
   useEffect(() => {
@@ -87,6 +150,51 @@ const ChatSessionData = () => {
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {[
+          {
+            label: "Total Cost AI",
+            value: list?.summary?.aiCost ?? 0,
+            isAi: true,
+          },
+          {
+            label: "Total Cost Transkripsi",
+            value: list?.summary?.transcriptionCost ?? 0,
+          },
+          {
+            label: "Total Cost",
+            value: list?.summary?.totalCost ?? 0,
+          },
+        ].map(({ label, value, isAi }) => (
+          <Card key={label} className="border-dl-border bg-white">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-dl-muted">
+                {label}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin text-dl-muted" />
+              ) : (
+                <>
+                  <p className="text-dl-foreground">
+                    {isAi
+                      ? `$${value.toFixed(5)}`
+                      : `$${formatStandardNumber(value)}`}
+                  </p>
+                  <p className="text-xs text-dl-muted">
+                    Rp{" "}
+                    {new Intl.NumberFormat("id-ID", {
+                      maximumFractionDigits: 2,
+                    }).format(value * rate)}
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       <Card className="border-dl-border bg-white">
         <CardHeader>
           <CardTitle className="text-base font-bold text-dl-foreground">
@@ -115,35 +223,24 @@ const ChatSessionData = () => {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-dl-muted">Dari</span>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="h-9 w-[160px] bg-white text-sm"
-              />
+              <DateFilterInput value={startDate} onChange={setStartDate} />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-dl-muted">Sampai</span>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="h-9 w-[160px] bg-white text-sm"
-              />
+              <DateFilterInput value={endDate} onChange={setEndDate} />
             </div>
-            {(startDate || endDate) && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 bg-white text-xs"
-                onClick={() => {
-                  setStartDate("");
-                  setEndDate("");
-                }}
-              >
-                Reset
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 bg-white text-xs"
+              onClick={() => {
+                const bounds = monthBounds();
+                setStartDate(bounds.start);
+                setEndDate(bounds.end);
+              }}
+            >
+              Reset
+            </Button>
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-dl-border">
