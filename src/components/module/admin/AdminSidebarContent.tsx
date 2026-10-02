@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { FaRobot } from "react-icons/fa6";
 
 type Props = {
   onNavigate?: () => void;
@@ -29,6 +30,7 @@ export const navItems = [
   { label: "Beranda", href: "/tdibmkr", icon: Home },
   { label: "Admin User", href: "/tdibmkr/admin-users", icon: ShieldUser },
   { label: "User", href: "/tdibmkr/users", icon: Users },
+  { label: "Chat Session", href: "/tdibmkr/chat-sessions", icon: FaRobot },
 ];
 
 const AdminSidebarContent = ({

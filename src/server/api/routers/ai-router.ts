@@ -21,6 +21,14 @@ const transcribeSchema = z.object({
     .default("wav"),
 });
 
+const sessionFilterSchema = z.object({
+  page: z.number().default(1),
+  limit: z.number().default(10),
+  search: z.string().optional().nullable(),
+  startDate: z.date().optional().nullable(),
+  endDate: z.date().optional().nullable(),
+});
+
 const SYSTEM_PROMPT = `Waktu sekarang: ${new Date().toISOString()}. Ubah input transaksi menjadi JSON. Balas JSON saja:
 {"category":string|null,"purpose":string|null,"amount":number|null,"trxDate":string|null,"trxTime":string|null}
 Gunakan null jika data tidak diketahui. category adalah "INCOME" jika uang masuk atau "EXPENSE" jika uang keluar. purpose adalah keterangan transaksi, amount adalah nominal (angka tanpa format, contoh 50000). trxDate adalah tanggal transaksi format "YYYY-MM-DD" (contoh "2026-05-12"), trxTime adalah jam transaksi format "HH:mm" (contoh "14:30"). Gunakan waktu sekarang sebagai acuan untuk kata seperti "hari ini", "kemarin", "jam 3 sore".`;
@@ -145,6 +153,90 @@ export const aiRouter = createTRPCRouter({
         data: parsed,
         usage: data.usage ?? null,
       };
+    }),
+
+  findAll: protectedProcedure
+    .input(sessionFilterSchema)
+    .query(async ({ input, ctx }) => {
+      const where = {
+        ...(input.search
+          ? {
+              OR: [
+                { user: { firstName: { contains: input.search } } },
+                { user: { lastName: { contains: input.search } } },
+                { user: { email: { contains: input.search } } },
+              ],
+            }
+          : {}),
+        ...(input.startDate || input.endDate
+          ? {
+              createdAt: {
+                ...(input.startDate ? { gte: input.startDate } : {}),
+                ...(input.endDate ? { lte: input.endDate } : {}),
+              },
+            }
+          : {}),
+      };
+      const [rows, total] = await Promise.all([
+        ctx.db.aIChatSession.findMany({
+          where,
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            details: { select: { cost: true } },
+            transcriptions: { select: { cost: true } },
+          },
+          skip: (input.page - 1) * input.limit,
+          take: input.limit,
+          orderBy: { createdAt: "desc" },
+        }),
+        ctx.db.aIChatSession.count({ where }),
+      ]);
+      const items = rows.map(({ details, transcriptions, ...session }) => {
+        const aiCost = details.reduce((sum, d) => sum + d.cost, 0);
+        const transcriptionCost = transcriptions.reduce(
+          (sum, t) => sum + t.cost,
+          0,
+        );
+        return {
+          ...session,
+          messageCount: details.length,
+          transcriptionCount: transcriptions.length,
+          aiCost,
+          transcriptionCost,
+          totalCost: aiCost + transcriptionCost,
+        };
+      });
+      return {
+        items,
+        meta: {
+          page: input.page,
+          limit: input.limit,
+          total_page: Math.ceil(total / input.limit),
+          total_item: total,
+        },
+      };
+    }),
+
+  detail: protectedProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .query(async ({ input, ctx }) => {
+      const session = await ctx.db.aIChatSession.findUnique({
+        where: { id: input.id },
+        include: {
+          user: true,
+          details: { orderBy: { createdAt: "asc" } },
+          transcriptions: { orderBy: { createdAt: "asc" } },
+        },
+      });
+      if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+      return session;
     }),
 
   transcribe: protectedProcedure
