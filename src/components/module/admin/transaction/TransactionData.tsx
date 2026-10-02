@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Eye,
   Loader2,
   Search,
 } from "lucide-react";
@@ -42,43 +40,6 @@ import {
 } from "@/lib/utils";
 import { useDebounced } from "@/lib/debounced";
 import { api } from "@/trpc/react";
-import InputMoney from "@/components/shared/InputMoney";
-
-const statusVariant: Record<
-  string,
-  "green" | "yellow" | "blue" | "destructive" | "secondary"
-> = {
-  OPEN: "green",
-  CLOSED: "destructive",
-};
-
-const statusLabel: Record<string, string> = {
-  OPEN: "Open",
-  CLOSED: "Closed",
-};
-
-const CostCell = ({
-  usd,
-  isAi,
-  rate,
-}: {
-  usd: number;
-  isAi?: boolean;
-  rate: number;
-}) => (
-  <TableCell className="text-dl-muted">
-    <span className="text-xs">
-      {isAi ? `$${usd.toFixed(5)}` : `$${formatStandardNumber(usd)}`}
-    </span>
-    <br />
-    <span className="text-xs text-dl-foreground">
-      Rp{" "}
-      {new Intl.NumberFormat("id-ID", {
-        maximumFractionDigits: 2,
-      }).format(usd * rate)}
-    </span>
-  </TableCell>
-);
 
 const toDateInput = (date: Date) => {
   const y = date.getFullYear();
@@ -125,80 +86,48 @@ const monthBounds = () => {
   return { start: toDateInput(start), end: toDateInput(end) };
 };
 
-const ChatSessionData = () => {
-  const router = useRouter();
+const categoryVariant: Record<
+  string,
+  "green" | "yellow" | "blue" | "destructive" | "secondary"
+> = {
+  INCOME: "green",
+  EXPENSE: "destructive",
+};
+
+const categoryLabel: Record<string, string> = {
+  INCOME: "Pemasukan",
+  EXPENSE: "Pengeluaran",
+};
+
+const TransactionData = () => {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [searchInput, setSearchInput] = useState("");
   const search = useDebounced(searchInput);
+  const [category, setCategory] = useState<"INCOME" | "EXPENSE" | "all">("all");
   const initial = monthBounds();
   const [startDate, setStartDate] = useState(initial.start);
   const [endDate, setEndDate] = useState(initial.end);
-  const [rate, setRate] = useState(18000);
 
   useEffect(() => {
     setPage(1);
-  }, [search, startDate, endDate]);
+  }, [search, category, startDate, endDate]);
 
-  const { data: list, isLoading } = api.ai.findAll.useQuery({
+  const { data: list, isLoading } = api.transaction.findAllAdmin.useQuery({
     page,
     limit,
     search: search || undefined,
-    startDate: startDate ? new Date(startDate) : undefined,
-    endDate: endDate ? new Date(endDate) : undefined,
+    category: category === "all" ? undefined : category,
+    start_date: startDate ? new Date(startDate) : undefined,
+    end_date: endDate ? new Date(endDate) : undefined,
   });
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {[
-          {
-            label: "Total Cost AI",
-            value: list?.summary?.aiCost ?? 0,
-            isAi: true,
-          },
-          {
-            label: "Total Cost Transkripsi",
-            value: list?.summary?.transcriptionCost ?? 0,
-          },
-          {
-            label: "Total Cost",
-            value: list?.summary?.totalCost ?? 0,
-          },
-        ].map(({ label, value, isAi }) => (
-          <Card key={label} className="border-dl-border bg-white">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold text-dl-muted">
-                {label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-              {isLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin text-dl-muted" />
-              ) : (
-                <>
-                  <p className="text-dl-foreground">
-                    {isAi
-                      ? `$${value.toFixed(5)}`
-                      : `$${formatStandardNumber(value)}`}
-                  </p>
-                  <p className="text-xs text-dl-muted">
-                    Rp{" "}
-                    {new Intl.NumberFormat("id-ID", {
-                      maximumFractionDigits: 2,
-                    }).format(value * rate)}
-                  </p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
       <Card className="border-dl-border bg-white">
         <CardHeader>
           <CardTitle className="text-base font-bold text-dl-foreground">
-            Data AI Chat Session
+            Data Transaksi
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -207,20 +136,33 @@ const ChatSessionData = () => {
             <Input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Cari nama/email user..."
+              placeholder="Cari trx id, keterangan, nama/email user..."
               className="bg-white pl-9"
             />
           </div>
 
           <div className="mb-4 flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-dl-muted">Kurs USD</span>
-              <InputMoney
-                value={rate}
-                onChange={(raw: string) => setRate(Number(raw) || 0)}
-                className="h-9 w-[150px]"
-              />
-            </div>
+            <Select
+              value={category}
+              onValueChange={(value) =>
+                setCategory(value as "INCOME" | "EXPENSE" | "all")
+              }
+            >
+              <SelectTrigger className="h-9 w-[160px] cursor-pointer bg-white text-sm">
+                <SelectValue placeholder="Semua Kategori" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="cursor-pointer">
+                  Semua Kategori
+                </SelectItem>
+                <SelectItem value="INCOME" className="cursor-pointer">
+                  Pemasukan
+                </SelectItem>
+                <SelectItem value="EXPENSE" className="cursor-pointer">
+                  Pengeluaran
+                </SelectItem>
+              </SelectContent>
+            </Select>
             <div className="flex items-center gap-2">
               <span className="text-xs text-dl-muted">Dari</span>
               <DateFilterInput value={startDate} onChange={setStartDate} />
@@ -247,25 +189,20 @@ const ChatSessionData = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Trx ID</TableHead>
                   <TableHead>User</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Pesan</TableHead>
-                  <TableHead>Transkripsi</TableHead>
-                  <TableHead>Cost AI</TableHead>
-                  <TableHead>Cost Transkripsi</TableHead>
-                  <TableHead>Total Cost</TableHead>
-                  <TableHead>Dibuat</TableHead>
-                  <TableHead className="sticky right-0 bg-white text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)]">
-                    Aksi
-                  </TableHead>
+                  <TableHead>Tanggal</TableHead>
+                  <TableHead>Kategori</TableHead>
+                  <TableHead>Keterangan</TableHead>
+                  <TableHead className="text-right">Nominal</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
                     <TableCell
-                      colSpan={10}
+                      colSpan={7}
                       className="h-24 text-center text-dl-muted"
                     >
                       <Loader2 className="mx-auto h-6 w-6 animate-spin" />
@@ -275,53 +212,49 @@ const ChatSessionData = () => {
                   list.items.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium text-dl-foreground">
+                        {item.trxId}
+                      </TableCell>
+                      <TableCell className="text-dl-foreground">
                         {item.user.firstName} {item.user.lastName}
                       </TableCell>
                       <TableCell className="text-dl-muted">
                         {item.user.email}
                       </TableCell>
+                      <TableCell className="text-dl-muted">
+                        {formatDateWithTime(item.trxDate.toISOString())}
+                      </TableCell>
                       <TableCell>
                         <Badge
-                          variant={statusVariant[item.status] ?? "secondary"}
+                          variant={
+                            categoryVariant[item.category] ?? "secondary"
+                          }
                           className="rounded-md text-[10px]"
                         >
-                          {statusLabel[item.status] ?? item.status}
+                          {categoryLabel[item.category] ?? item.category}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-dl-muted">
-                        {item.messageCount}
+                      <TableCell className="max-w-[200px] truncate text-dl-muted">
+                        {item.purpose}
                       </TableCell>
-                      <TableCell className="text-dl-muted">
-                        {item.transcriptionCount}
-                      </TableCell>
-                      <CostCell usd={item.aiCost} isAi rate={rate} />
-                      <CostCell usd={item.transcriptionCost} rate={rate} />
-                      <CostCell usd={item.totalCost} rate={rate} />
-                      <TableCell className="text-dl-muted">
-                        {formatDateWithTime(item.createdAt.toISOString())}
-                      </TableCell>
-                      <TableCell className="sticky right-0 bg-white text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)]">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-dl-muted hover:bg-dl-primary/10 hover:text-dl-primary"
-                          onClick={() =>
-                            router.push(`/tdibmkr/chat-sessions/${item.id}`)
-                          }
-                          aria-label="Lihat detail"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                      <TableCell
+                        className={
+                          item.category === "INCOME"
+                            ? "text-right font-medium text-dl-foreground"
+                            : "text-right font-medium text-dl-error"
+                        }
+                      >
+                        {item.category === "INCOME" ? "+" : "-"}Rp{" "}
+                        {formatStandardNumber(item.amount)}
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={10}
+                      colSpan={7}
                       className="h-24 text-center text-dl-muted"
                     >
-                      Tidak ada data session
+                      Tidak ada data transaksi
                     </TableCell>
                   </TableRow>
                 )}
@@ -392,4 +325,4 @@ const ChatSessionData = () => {
   );
 };
 
-export default ChatSessionData;
+export default TransactionData;

@@ -12,6 +12,7 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  NotebookPen,
 } from "lucide-react";
 import { UangPintarLogoNoBg } from "@/lib/images";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ export const navItems = [
   { label: "Beranda", href: "/tdibmkr", icon: Home },
   { label: "Admin User", href: "/tdibmkr/admin-users", icon: ShieldUser },
   { label: "User", href: "/tdibmkr/users", icon: Users },
+  { label: "Transaksi", href: "/tdibmkr/transactions", icon: NotebookPen },
   { label: "Chat Session", href: "/tdibmkr/chat-sessions", icon: FaRobot },
 ];
 

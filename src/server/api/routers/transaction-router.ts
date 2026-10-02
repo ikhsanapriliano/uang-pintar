@@ -74,6 +74,73 @@ export const transactionRouter = createTRPCRouter({
       };
     }),
 
+  findAllAdmin: protectedProcedure
+    .input(transactionFilterSchema)
+    .query(async ({ input, ctx }) => {
+      const where = {
+        trxDate: {
+          ...(input.start_date ? { gte: input.start_date } : {}),
+          ...(input.end_date ? { lte: input.end_date } : {}),
+        },
+        ...(input.search
+          ? {
+              OR: [
+                {
+                  trxId: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  purpose: {
+                    contains: input.search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  user: {
+                    OR: [
+                      { firstName: { contains: input.search } },
+                      { lastName: { contains: input.search } },
+                      { email: { contains: input.search } },
+                    ],
+                  },
+                },
+              ],
+            }
+          : {}),
+        ...(input.category ? { category: input.category } : {}),
+      };
+      const [items, total] = await Promise.all([
+        ctx.db.transaction.findMany({
+          where,
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+          skip: (input.page - 1) * input.limit,
+          take: input.limit,
+          orderBy: { createdAt: "desc" },
+        }),
+        ctx.db.transaction.count({ where }),
+      ]);
+      return {
+        items,
+        meta: {
+          page: input.page,
+          limit: input.limit,
+          total_page: Math.ceil(total / input.limit),
+          total_item: total,
+        },
+      };
+    }),
+
   detail: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))
     .query(async ({ input, ctx }) => {
