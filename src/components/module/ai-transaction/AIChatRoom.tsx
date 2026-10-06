@@ -69,7 +69,7 @@ const initialDraft = (): TransactionDraft => {
   };
 };
 
-const MAX_SESSION_COST = 0.0001;
+const MAX_SESSION_COST = 0.00015;
 const MAX_VOICE_SECONDS = 20;
 const MAX_VOICE_COST = (MAX_VOICE_SECONDS / 3600) * 0.22;
 
@@ -89,7 +89,7 @@ const formatResponse = (data: Partial<TAIResponse>) => {
 - Keterangan: ${data.purpose ?? "-"}
 - Nominal: ${formatCurrency(Number(data.amount) || 0) ?? "-"}
 - Tanggal: ${date ? formatDateWithTime(date.toISOString()) : "-"}
-${isComplete(data) ? "\n Catatan sudah lengkap, kamu bisa klik tombol Catat Sekarang untuk menyimpan jika sudah benar." : ""}`;
+${isComplete(data) ? "\nApakah kamu mau catat transaksinya?" : ""}`;
 };
 
 const mergeResponse = (
@@ -119,6 +119,7 @@ const AIChatRoom = () => {
   const endRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(initialMessages.length);
   const [isRecording, setIsRecording] = useState(false);
+  const [declined, setDeclined] = useState(false);
   const [usedVoiceSeconds, setUsedVoiceSeconds] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -173,6 +174,7 @@ const AIChatRoom = () => {
     onSuccess: (result) => {
       mergeResponse(aiResponseRef.current, result.data);
       setSessionCost((c) => c + (result.usage?.cost ?? 0));
+      setDeclined(false);
       pushMessage({
         role: "ai",
         content: formatResponse(aiResponseRef.current),
@@ -322,6 +324,7 @@ const AIChatRoom = () => {
     onSuccess: (result) => {
       aiResponseRef.current = initialDraft();
       setMessages(initialMessages);
+      setDeclined(false);
       setSessionCost(0);
       setVoiceCost(0);
       setAiTransactionCount(result.aiSessionCount);
@@ -358,6 +361,7 @@ const AIChatRoom = () => {
     if (!content) return;
     pushMessage({ role: "user", content });
     setInput("");
+    setDeclined(false);
     sendMessage.mutate({ prompt: content });
   };
 
@@ -510,7 +514,7 @@ const AIChatRoom = () => {
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
-        {messages.map((message) => (
+        {messages.map((message, i) => (
           <div
             key={message.id}
             className={cn(
@@ -541,6 +545,48 @@ const AIChatRoom = () => {
               )}
             >
               {message.content}
+              {message.role === "ai" &&
+                i === messages.length - 1 &&
+                isDraftComplete &&
+                !declined && (
+                  <div className="mt-3 flex flex-col gap-2">
+                    <Button
+                      onClick={() =>
+                        createTransaction.mutate({
+                          category: aiResponseRef.current.category! as
+                            | "INCOME"
+                            | "EXPENSE",
+                          purpose: aiResponseRef.current.purpose!,
+                          amount: aiResponseRef.current.amount!,
+                          trx_date:
+                            draftDate(aiResponseRef.current) ?? new Date(),
+                        })
+                      }
+                      disabled={createTransaction.isPending}
+                      className="w-full bg-gradient-to-r from-dl-gradient-2 to-dl-primary text-white shadow-lg shadow-dl-primary/25 transition-all duration-300 hover:brightness-110"
+                    >
+                      {createTransaction.isPending ? (
+                        <>
+                          <Loader2 className="animate-spin" />
+                          Menyimpan...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4" />
+                          Ya, Catat
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setDeclined(true)}
+                      disabled={createTransaction.isPending}
+                      className="w-full"
+                    >
+                      Tidak
+                    </Button>
+                  </div>
+                )}
             </div>
           </div>
         ))}
@@ -559,37 +605,6 @@ const AIChatRoom = () => {
 
         <div ref={endRef} />
       </div>
-
-      {isDraftComplete && (
-        <div className="pt-2">
-          <Button
-            onClick={() =>
-              createTransaction.mutate({
-                category: aiResponseRef.current.category! as
-                  | "INCOME"
-                  | "EXPENSE",
-                purpose: aiResponseRef.current.purpose!,
-                amount: aiResponseRef.current.amount!,
-                trx_date: draftDate(aiResponseRef.current) ?? new Date(),
-              })
-            }
-            disabled={createTransaction.isPending}
-            className="w-full bg-gradient-to-r from-dl-gradient-2 to-dl-primary text-white shadow-lg shadow-dl-primary/25 transition-all duration-300 hover:brightness-110"
-          >
-            {createTransaction.isPending ? (
-              <>
-                <Loader2 className="animate-spin" />
-                Menyimpan...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                Catat Sekarang
-              </>
-            )}
-          </Button>
-        </div>
-      )}
 
       {energyExhausted ? (
         <div className="border-t border-dl-border pt-3">

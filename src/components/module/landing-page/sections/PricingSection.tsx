@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Mic, NotebookPen, Rocket, X } from "lucide-react";
+import { ChartColumn, Check, Mic, NotebookPen, Rocket, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -16,8 +16,8 @@ const trialPlan = {
   benefits: [
     { label: "Gratis selama 7 hari" },
     { label: "Unlimited Pencatatan Manual" },
-    { label: "20 Pencatatan AI" },
-    { label: "Pencatatan Lewat Suara" },
+    { label: "30 Pencatatan AI" },
+    { label: "10 Pencatatan Suara" },
     { label: "Riwayat Catatan Keuangan" },
   ] as Benefit[],
   buttonVariant: "outline" as const,
@@ -25,7 +25,7 @@ const trialPlan = {
 
 const paidPlans = [
   {
-    name: "Pintar Ngetik",
+    name: "Paket Ngetik",
     icon: NotebookPen,
     monthlyPrice: "Rp. 10.000",
     yearlyPrice: "Rp. 90.000",
@@ -40,7 +40,7 @@ const paidPlans = [
     highlighted: true,
   },
   {
-    name: "Pintar Ngomong",
+    name: "Paket Ngomong",
     icon: Mic,
     monthlyPrice: "Rp. 20.000",
     yearlyPrice: "Rp. 180.000",
@@ -52,6 +52,24 @@ const paidPlans = [
       { label: "Riwayat Catatan Keuangan" },
     ] as Benefit[],
     buttonVariant: "outline" as const,
+  },
+  {
+    name: "Paket Analisis",
+    icon: ChartColumn,
+    price: "Rp. 500.000",
+    period: "/tahun",
+    description: "Cocok yang ingin mulai serius mengelola keuangan.",
+    benefits: [
+      { label: "Unlimited Pencatatan Manual" },
+      { label: "Unlimited Pencatatan AI" },
+      { label: "Pencatatan Lewat Suara" },
+      { label: "Riwayat Catatan Keuangan" },
+      { label: "Pembagian Dompet Keuangan" },
+      { label: "Analisis Keuangan oleh AI" },
+    ] as Benefit[],
+    buttonVariant: "outline" as const,
+    disabled: true,
+    yearlyOnly: true,
   },
 ];
 
@@ -93,151 +111,156 @@ const PricingSection = () => {
         </TabsList>
 
         <div className="grid w-full max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {[trialPlan, ...paidPlans].map((plan) => {
-            const highlighted = "monthlyPrice" in plan && plan.highlighted;
-            const price =
-              "monthlyPrice" in plan
-                ? period === "bulan"
-                  ? plan.monthlyPrice
-                  : plan.yearlyPrice
-                : plan.price;
-            const periodLabel =
-              "monthlyPrice" in plan
-                ? period === "bulan"
-                  ? "/bulan"
-                  : "/tahun"
-                : plan.period;
+          {[trialPlan, ...paidPlans]
+            .filter((plan) => {
+              if ("yearlyOnly" in plan && plan.yearlyOnly)
+                return period === "tahun";
+              if (plan.name === "Uji Coba") return period === "bulan";
+              return true;
+            })
+            .map((plan) => {
+              const highlighted = "monthlyPrice" in plan && plan.highlighted;
+              const isDisabled = "disabled" in plan && plan.disabled;
+              const price =
+                "monthlyPrice" in plan
+                  ? period === "bulan"
+                    ? plan.monthlyPrice
+                    : plan.yearlyPrice
+                  : plan.price;
+              const periodLabel =
+                "monthlyPrice" in plan
+                  ? period === "bulan"
+                    ? "/bulan"
+                    : "/tahun"
+                  : plan.period;
 
-            const benefits =
-              period === "tahun" && "monthlyPrice" in plan
-                ? plan.benefits.map((b) => ({
-                    ...b,
-                    label: b.disabled
-                      ? b.label
-                      : b.label.includes("Pencatatan AI")
-                        ? "6.000 Pencatatan AI"
-                        : b.label.includes("Pencatatan Suara")
-                          ? "120 Pencatatan Suara"
-                          : b.label,
-                  }))
-                : plan.benefits;
+              const benefits = plan.benefits;
 
-            return (
-              <div
-                key={plan.name}
-                className={
-                  highlighted
-                    ? "relative rounded-2xl bg-gradient-to-br from-dl-gradient-2 via-dl-primary to-dl-gradient-4 p-[1.5px] shadow-2xl shadow-dl-primary/25"
-                    : "relative rounded-2xl"
-                }
-              >
+              return (
                 <div
-                  className={`relative flex h-full flex-col gap-6 rounded-2xl border p-6 ${
+                  key={plan.name}
+                  className={
                     highlighted
-                      ? "border-transparent bg-white"
-                      : "border-dl-border bg-white"
-                  }`}
+                      ? "relative rounded-2xl bg-gradient-to-br from-dl-gradient-2 via-dl-primary to-dl-gradient-4 p-[1.5px] shadow-2xl shadow-dl-primary/25"
+                      : "relative rounded-2xl"
+                  }
                 >
-                  {plan.name === "Pintar Ngomong" && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-dl-foreground px-4 py-1 text-xs font-bold text-white shadow-md">
-                      Tinggal Ngomong
-                    </div>
-                  )}
-
-                  <div>
-                    <h3
-                      className={`flex items-center gap-2 text-lg font-bold ${
-                        highlighted ? "text-dl-primary" : "text-dl-foreground"
-                      }`}
-                    >
-                      {"icon" in plan && <plan.icon className="h-5 w-5" />}
-                      {plan.name}
-                    </h3>
-                    <p className="mt-1 text-sm text-dl-muted">
-                      {plan.description}
-                    </p>
-                  </div>
-
-                  <div className="flex items-baseline gap-1">
-                    <span
-                      className={`text-3xl font-extrabold ${
-                        highlighted
-                          ? "bg-gradient-to-r from-dl-gradient-2 to-dl-primary bg-clip-text text-transparent"
-                          : "text-dl-foreground"
-                      }`}
-                    >
-                      {price}
-                    </span>
-                    <span className="text-sm text-dl-muted">{periodLabel}</span>
-                  </div>
-
-                  {period === "tahun" && "monthlyPrice" in plan && (
-                    <p className="-mt-4 text-xs font-semibold text-dl-primary">
-                      Setara{" "}
-                      {(
-                        Number(plan.yearlyPrice.replace(/[^\d]/g, "")) / 12
-                      ).toLocaleString("id-ID", {
-                        style: "currency",
-                        currency: "IDR",
-                        maximumFractionDigits: 0,
-                      })}
-                      /bulan — hemat 25%
-                    </p>
-                  )}
-
-                  <ul className="flex flex-col gap-3">
-                    {benefits.map((benefit) => {
-                      const disabled = benefit.disabled;
-                      return (
-                        <li
-                          key={benefit.label}
-                          className="flex items-start gap-3"
-                        >
-                          <div
-                            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                              disabled
-                                ? "bg-dl-error/10 text-dl-error"
-                                : highlighted
-                                  ? "bg-gradient-to-br from-dl-gradient-2 to-dl-primary text-white"
-                                  : "bg-dl-primary/10 text-dl-primary"
-                            }`}
-                          >
-                            {disabled ? (
-                              <X className="h-3 w-3" />
-                            ) : (
-                              <Check className="h-3 w-3" />
-                            )}
-                          </div>
-                          <span
-                            className={`text-sm leading-relaxed ${
-                              disabled
-                                ? "text-dl-muted"
-                                : highlighted
-                                  ? "text-dl-foreground"
-                                  : "text-dl-muted"
-                            }`}
-                          >
-                            {benefit.label}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-
-                  <Button
-                    variant={plan.buttonVariant}
-                    className={`mt-auto h-12 w-full rounded-xl text-base font-semibold ${
+                  <div
+                    className={`relative flex h-full flex-col gap-6 rounded-2xl border p-6 ${
                       highlighted
-                        ? "bg-gradient-to-r from-dl-gradient-2 to-dl-primary text-white shadow-lg shadow-dl-primary/25 hover:brightness-110"
-                        : "border-dl-border text-dl-foreground hover:border-dl-primary/50 hover:bg-gradient-to-r hover:from-dl-gradient-1/10 hover:via-dl-gradient-2/10 hover:to-dl-primary/10 hover:text-dl-primary hover:shadow-lg hover:shadow-dl-primary/15 transition-all duration-300"
+                        ? "border-transparent bg-white"
+                        : "border-dl-border bg-white"
                     }`}
                   >
-                    {plan.name === "Uji Coba" ? "Coba Gratis" : "Pilih Paket"}
-                  </Button>
+                    {plan.name === "Paket Ngomong" && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-dl-foreground px-4 py-1 text-xs font-bold text-white shadow-md">
+                        Tinggal Ngomong
+                      </div>
+                    )}
+
+                    {isDisabled && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-dl-error px-4 py-1 text-xs font-bold text-white shadow-md">
+                        Kuota Sudah Penuh
+                      </div>
+                    )}
+
+                    <div>
+                      <h3
+                        className={`flex items-center gap-2 text-lg font-bold ${
+                          highlighted ? "text-dl-primary" : "text-dl-foreground"
+                        }`}
+                      >
+                        {"icon" in plan && <plan.icon className="h-5 w-5" />}
+                        {plan.name}
+                      </h3>
+                      <p className="mt-1 text-sm text-dl-muted">
+                        {plan.description}
+                      </p>
+                    </div>
+
+                    <div className="flex items-baseline gap-1">
+                      <span
+                        className={`text-3xl font-extrabold ${
+                          highlighted
+                            ? "bg-gradient-to-r from-dl-gradient-2 to-dl-primary bg-clip-text text-transparent"
+                            : "text-dl-foreground"
+                        }`}
+                      >
+                        {price}
+                      </span>
+                      <span className="text-sm text-dl-muted">
+                        {periodLabel}
+                      </span>
+                    </div>
+
+                    {period === "tahun" && "monthlyPrice" in plan && (
+                      <p className="-mt-4 text-xs font-semibold text-dl-primary">
+                        Setara{" "}
+                        {(
+                          Number(plan.yearlyPrice.replace(/[^\d]/g, "")) / 12
+                        ).toLocaleString("id-ID", {
+                          style: "currency",
+                          currency: "IDR",
+                          maximumFractionDigits: 0,
+                        })}
+                        /bulan — hemat 25%
+                      </p>
+                    )}
+
+                    <ul className="flex flex-col gap-3">
+                      {benefits.map((benefit) => {
+                        const disabled = benefit.disabled;
+                        return (
+                          <li
+                            key={benefit.label}
+                            className="flex items-start gap-3"
+                          >
+                            <div
+                              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                                disabled
+                                  ? "bg-dl-error/10 text-dl-error"
+                                  : highlighted
+                                    ? "bg-gradient-to-br from-dl-gradient-2 to-dl-primary text-white"
+                                    : "bg-dl-primary/10 text-dl-primary"
+                              }`}
+                            >
+                              {disabled ? (
+                                <X className="h-3 w-3" />
+                              ) : (
+                                <Check className="h-3 w-3" />
+                              )}
+                            </div>
+                            <span
+                              className={`text-sm leading-relaxed ${
+                                disabled
+                                  ? "text-dl-muted"
+                                  : highlighted
+                                    ? "text-dl-foreground"
+                                    : "text-dl-muted"
+                              }`}
+                            >
+                              {benefit.label}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+
+                    <Button
+                      variant={plan.buttonVariant}
+                      disabled={isDisabled}
+                      className={`mt-auto h-12 w-full rounded-xl text-base font-semibold ${
+                        highlighted
+                          ? "bg-gradient-to-r from-dl-gradient-2 to-dl-primary text-white shadow-lg shadow-dl-primary/25 hover:brightness-110"
+                          : "border-dl-border text-dl-foreground hover:border-dl-primary/50 hover:bg-gradient-to-r hover:from-dl-gradient-1/10 hover:via-dl-gradient-2/10 hover:to-dl-primary/10 hover:text-dl-primary hover:shadow-lg hover:shadow-dl-primary/15 transition-all duration-300"
+                      }`}
+                    >
+                      {plan.name === "Uji Coba" ? "Coba Gratis" : "Pilih Paket"}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
       </Tabs>
     </section>

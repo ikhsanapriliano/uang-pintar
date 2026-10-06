@@ -29,9 +29,13 @@ const sessionFilterSchema = z.object({
   endDate: z.date().optional().nullable(),
 });
 
-const SYSTEM_PROMPT = `Waktu sekarang: ${new Date().toISOString()}. Ubah input transaksi menjadi JSON. Balas JSON saja:
-{"category":string|null,"purpose":string|null,"amount":number|null,"trxDate":string|null,"trxTime":string|null}
-Gunakan null jika data tidak diketahui. category adalah "INCOME" jika uang masuk atau "EXPENSE" jika uang keluar. purpose adalah keterangan transaksi, amount adalah nominal (angka tanpa format, contoh 50000). trxDate adalah tanggal transaksi format "YYYY-MM-DD" (contoh "2026-05-12"), trxTime adalah jam transaksi format "HH:mm" (contoh "14:30"). Gunakan waktu sekarang sebagai acuan untuk kata seperti "hari ini", "kemarin", "jam 3 sore".`;
+const wib = new Date().toLocaleString("sv-SE", {
+  timeZone: "Asia/Jakarta",
+});
+
+const SYSTEM_PROMPT = `Waktu sekarang: ${wib}. Ubah input transaksi menjadi JSON saja:
+{"category":"INCOME"|"EXPENSE"|null,"purpose":string|null,"amount":number|null,"trxDate":"YYYY-MM-DD"|null,"trxTime":"HH:mm"|null}
+INCOME=uang masuk, EXPENSE=uang keluar. null jika tak disebut. amount angka tanpa format (50000). "hari ini"/"kemarin"/"jam 3 sore" relatif ke waktu sekarang.`;
 
 const getOrCreateOpenSession = async (
   db: PrismaClient,
@@ -95,7 +99,7 @@ export const aiRouter = createTRPCRouter({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "xiaomi/mimo-v2.6-flash",
+            model: "google/gemma-3-4b-it",
             messages: [
               { role: "system", content: SYSTEM_PROMPT },
               { role: "user", content: input.prompt },
