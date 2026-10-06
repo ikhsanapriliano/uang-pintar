@@ -351,6 +351,13 @@ const AIChatRoom = () => {
       idRef.current = lastId;
       setMessages(loaded);
       setSessionCost(session.details.reduce((sum, d) => sum + d.cost, 0));
+      const usedVoiceSeconds = session.transcriptions.reduce(
+        (sum, t) => sum + t.seconds,
+        0,
+      );
+      setVoiceCost(session.transcriptions.reduce((sum, t) => sum + t.cost, 0));
+      voiceSecondsRef.current = usedVoiceSeconds;
+      setUsedVoiceSeconds(usedVoiceSeconds);
       setDraftTick((t) => t + 1);
       setLoading(false);
     },

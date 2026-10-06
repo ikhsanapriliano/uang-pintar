@@ -134,12 +134,15 @@ const getOrCreateOpenSession = async (
   if (!userId) throw new TRPCError({ code: "UNAUTHORIZED" });
   const existing = await db.aIChatSession.findFirst({
     where: { userId, status: "OPEN" },
-    include: { details: { orderBy: { createdAt: "asc" } } },
+    include: {
+      details: { orderBy: { createdAt: "asc" } },
+      transcriptions: { orderBy: { createdAt: "asc" } },
+    },
   });
   if (existing) return existing;
   return db.aIChatSession.create({
     data: { userId },
-    include: { details: true },
+    include: { details: true, transcriptions: true },
   });
 };
 
@@ -181,10 +184,13 @@ export const aiRouter = createTRPCRouter({
         ? `${SYSTEM_PROMPT}\n\nData transaksi sebelumnya (perbarui field yang disebut pengguna, lainnya biarkan):\n${draftSummary(input.draft)}`
         : SYSTEM_PROMPT;
 
-      const { content, usage } = await chatCompletion([
-        { role: "system", content: systemContent },
-        { role: "user", content: input.prompt },
-      ]);
+      const { content, usage } = await chatCompletion(
+        [
+          { role: "system", content: systemContent },
+          { role: "user", content: input.prompt },
+        ],
+        "xiaomi/mimo-v2.6-flash",
+      );
 
       let parsed: TAIResponse;
       try {

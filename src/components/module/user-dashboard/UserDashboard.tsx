@@ -601,7 +601,7 @@ const UserDashboard = () => {
                       <TableHead className="px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
                         ID Transaksi
                       </TableHead>
-                      <TableHead className="min-w-[250px] max-w-[250px] px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
+                      <TableHead className="min-w-[300px] max-w-[300px] px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
                         Keterangan
                       </TableHead>
                       <TableHead className="px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
@@ -637,7 +637,7 @@ const UserDashboard = () => {
                           <TableCell className="px-4 py-3 font-medium text-dl-foreground">
                             {item.trxId}
                           </TableCell>
-                          <TableCell className="min-w-[250px] max-w-[250px] px-4 py-3 font-medium break-words whitespace-normal text-dl-foreground">
+                          <TableCell className="min-w-[300px] max-w-[300px] px-4 py-3 font-medium break-words whitespace-normal text-dl-foreground">
                             {item.purpose}
                           </TableCell>
                           <TableCell className="px-4 py-3">
