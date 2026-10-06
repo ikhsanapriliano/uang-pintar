@@ -28,7 +28,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -168,13 +168,14 @@ const ManualTransactionForm = () => {
                   <FormItem>
                     <FormLabel>Keterangan</FormLabel>
                     <FormControl>
-                      <Input
+                      <Textarea
+                        rows={2}
                         placeholder={
                           category === "INCOME"
                             ? "Contoh: Gajian"
                             : "Contoh: Bayar Listrik"
                         }
-                        className="bg-white"
+                        className="resize-none bg-white"
                         {...field}
                       />
                     </FormControl>

@@ -4,14 +4,32 @@ import { TRPCError } from "@trpc/server";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type {
   TAIChatCompletionUsage,
+  TAIReplyIntent,
   TAIResponse,
 } from "@/server/api/types/ai-type";
+
+const draftSchema = z.object({
+  category: z.string().nullable().optional(),
+  purpose: z.string().nullable().optional(),
+  amount: z.union([z.string(), z.number()]).nullable().optional(),
+  trxDate: z.string().nullable().optional(),
+  trxTime: z.string().nullable().optional(),
+});
 
 const sendMessageSchema = z.object({
   prompt: z
     .string()
     .min(1, "Prompt tidak boleh kosong")
     .max(200, "Prompt maksimal 200 karakter"),
+  draft: draftSchema.optional(),
+});
+
+const classifyReplySchema = z.object({
+  prompt: z
+    .string()
+    .min(1, "Prompt tidak boleh kosong")
+    .max(200, "Prompt maksimal 200 karakter"),
+  draft: draftSchema,
 });
 
 const transcribeSchema = z.object({
@@ -33,9 +51,81 @@ const wib = new Date().toLocaleString("sv-SE", {
   timeZone: "Asia/Jakarta",
 });
 
-const SYSTEM_PROMPT = `Waktu sekarang: ${wib}. Ubah input transaksi menjadi JSON saja:
+const SYSTEM_PROMPT = `Waktu: ${wib} (WIB). Ubah transaksi menjadi JSON saja:
 {"category":"INCOME"|"EXPENSE"|null,"purpose":string|null,"amount":number|null,"trxDate":"YYYY-MM-DD"|null,"trxTime":"HH:mm"|null}
-INCOME=uang masuk, EXPENSE=uang keluar. null jika tak disebut. amount angka tanpa format (50000). "hari ini"/"kemarin"/"jam 3 sore" relatif ke waktu sekarang.`;
+INCOME=masuk, EXPENSE=keluar. null jika tak disebut. amount angka tanpa format (50000). Waktu relatif ke sekarang.`;
+
+const CLASSIFY_PROMPT = `Tentukan intent balasan atas transaksi tertunda. Balas HANYA JSON:
+{"intent":"SAVE"} jika setuju menyimpan tanpa maksud lain.
+{"intent":"CONVERSATION"} untuk info baru, koreksi, pertanyaan, penolakan, atau lainnya. Ragu -> CONVERSATION.`;
+
+const CLASSIFY_MODEL = "google/gemma-3-4b-it";
+
+const draftSummary = (draft: {
+  category?: string | null;
+  purpose?: string | null;
+  amount?: string | number | null;
+}) =>
+  [
+    `Kategori: ${
+      draft.category === "INCOME"
+        ? "Pemasukan"
+        : draft.category === "EXPENSE"
+          ? "Pengeluaran"
+          : "-"
+    }`,
+    `Keterangan: ${draft.purpose ?? "-"}`,
+    `Nominal: ${draft.amount ?? "-"}`,
+  ].join("\n");
+
+const chatCompletion = async (
+  messages: { role: "system" | "user"; content: string }[],
+  model = "google/gemma-3-4b-it",
+  maxTokens = 200,
+) => {
+  const apiKey = process.env.OPENROUTER;
+  if (!apiKey) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+  let res: Response;
+  try {
+    res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        response_format: { type: "json_object" },
+        max_tokens: maxTokens,
+        temperature: 0.2,
+        reasoning: { effort: "none" },
+      }),
+    });
+  } catch {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Gagal terhubung ke layanan AI",
+    });
+  }
+
+  if (!res.ok) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: `Layanan AI error: ${res.status}`,
+    });
+  }
+
+  const data = (await res.json()) as {
+    choices?: { message?: { content?: string } }[];
+    usage?: TAIChatCompletionUsage;
+  };
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+  return { content, usage: data.usage ?? null };
+};
 
 const getOrCreateOpenSession = async (
   db: PrismaClient,
@@ -87,49 +177,14 @@ export const aiRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       const session = await getOrCreateOpenSession(ctx.db, ctx.session.userId);
 
-      const apiKey = process.env.OPENROUTER;
-      if (!apiKey) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const systemContent = input.draft
+        ? `${SYSTEM_PROMPT}\n\nData transaksi sebelumnya (perbarui field yang disebut pengguna, lainnya biarkan):\n${draftSummary(input.draft)}`
+        : SYSTEM_PROMPT;
 
-      let res: Response;
-      try {
-        res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemma-3-4b-it",
-            messages: [
-              { role: "system", content: SYSTEM_PROMPT },
-              { role: "user", content: input.prompt },
-            ],
-            response_format: { type: "json_object" },
-            max_tokens: 200,
-            temperature: 0.2,
-            reasoning: { effort: "none" },
-          }),
-        });
-      } catch {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Gagal terhubung ke layanan AI",
-        });
-      }
-
-      if (!res.ok) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Layanan AI error: ${res.status}`,
-        });
-      }
-
-      const data = (await res.json()) as {
-        choices?: { message?: { content?: string } }[];
-        usage?: TAIChatCompletionUsage;
-      };
-      const content = data.choices?.[0]?.message?.content;
-      if (!content) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const { content, usage } = await chatCompletion([
+        { role: "system", content: systemContent },
+        { role: "user", content: input.prompt },
+      ]);
 
       let parsed: TAIResponse;
       try {
@@ -146,17 +201,58 @@ export const aiRouter = createTRPCRouter({
           sessionId: session.id,
           prompt: input.prompt,
           response: parsed as unknown as Prisma.InputJsonValue,
-          promptTokens: data.usage?.prompt_tokens ?? 0,
-          completionTokens: data.usage?.completion_tokens ?? 0,
-          totalTokens: data.usage?.total_tokens ?? 0,
-          cost: data.usage?.cost ?? 0,
+          promptTokens: usage?.prompt_tokens ?? 0,
+          completionTokens: usage?.completion_tokens ?? 0,
+          totalTokens: usage?.total_tokens ?? 0,
+          cost: usage?.cost ?? 0,
         },
       });
 
       return {
         data: parsed,
-        usage: data.usage ?? null,
+        usage,
       };
+    }),
+
+  classifyReply: protectedProcedure
+    .input(classifyReplySchema)
+    .mutation(async ({ input, ctx }) => {
+      const { draft } = input;
+      const summary = draftSummary(draft);
+
+      const { content, usage } = await chatCompletion(
+        [
+          {
+            role: "system",
+            content: `${CLASSIFY_PROMPT}\n\nTransaksi tertunda:\n${summary}`,
+          },
+          { role: "user", content: input.prompt },
+        ],
+        CLASSIFY_MODEL,
+      );
+
+      let intent: TAIReplyIntent = "CONVERSATION";
+      try {
+        const parsed = JSON.parse(content) as { intent?: string };
+        if (parsed.intent === "SAVE") intent = "SAVE";
+      } catch {
+        intent = "CONVERSATION";
+      }
+
+      const session = await getOrCreateOpenSession(ctx.db, ctx.session.userId);
+      await ctx.db.aIChatSessionDetail.create({
+        data: {
+          sessionId: session.id,
+          prompt: input.prompt,
+          response: { intent } as Prisma.InputJsonValue,
+          promptTokens: usage?.prompt_tokens ?? 0,
+          completionTokens: usage?.completion_tokens ?? 0,
+          totalTokens: usage?.total_tokens ?? 0,
+          cost: usage?.cost ?? 0,
+        },
+      });
+
+      return { intent, usage };
     }),
 
   findAll: protectedProcedure

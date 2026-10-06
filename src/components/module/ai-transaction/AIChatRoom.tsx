@@ -6,18 +6,40 @@ import { useSession } from "next-auth/react";
 import {
   AlertTriangle,
   Bot,
+  CalendarDays,
+  Clock,
   HelpCircle,
   Loader2,
   Mic,
   MicOff,
+  Pencil,
   Plus,
   Save,
   Send,
   Sparkles,
+  TrendingDown,
+  TrendingUp,
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import InputMoney from "@/components/shared/InputMoney";
 import {
   Popover,
   PopoverContent,
@@ -26,8 +48,8 @@ import {
 import {
   cn,
   formatCurrency,
+  formatDate,
   formatDateWithTime,
-  formatLongDateWithTime,
 } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast";
 import type { TAIResponse } from "@/server/api/types/ai-type";
@@ -103,6 +125,178 @@ const mergeResponse = (
   }
 };
 
+const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+const minutes = Array.from({ length: 60 }, (_, i) =>
+  String(i).padStart(2, "0"),
+);
+
+type DraftEditModalProps = {
+  draft: TransactionDraft;
+  onClose: () => void;
+  onSave: (draft: TransactionDraft) => void;
+};
+
+const DraftEditModal = ({ draft, onClose, onSave }: DraftEditModalProps) => {
+  const initialDate = draftDate(draft) ?? new Date();
+  const [category, setCategory] = useState<"INCOME" | "EXPENSE">(
+    draft.category === "INCOME" ? "INCOME" : "EXPENSE",
+  );
+  const [purpose, setPurpose] = useState(draft.purpose ?? "");
+  const [amount, setAmount] = useState(String(draft.amount ?? ""));
+  const [date, setDate] = useState(initialDate);
+  const [time, setTime] = useState(toTimeInput(initialDate));
+
+  const canSave = purpose.trim().length > 0 && Number(amount) > 0;
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="bg-white">
+        <DialogHeader>
+          <DialogTitle className="text-dl-foreground">
+            Edit Transaksi
+          </DialogTitle>
+          <DialogDescription>
+            Perbarui detail sebelum mencatat transaksi
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setCategory("INCOME")}
+              className={cn(
+                "flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                category === "INCOME"
+                  ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                  : "border-dl-border bg-white text-dl-muted hover:border-dl-border/60",
+              )}
+            >
+              <TrendingUp className="h-4 w-4" />
+              Pemasukan
+            </button>
+            <button
+              type="button"
+              onClick={() => setCategory("EXPENSE")}
+              className={cn(
+                "flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                category === "EXPENSE"
+                  ? "border-rose-500 bg-rose-50 text-rose-700"
+                  : "border-dl-border bg-white text-dl-muted hover:border-dl-border/60",
+              )}
+            >
+              <TrendingDown className="h-4 w-4" />
+              Pengeluaran
+            </button>
+          </div>
+
+          <Textarea
+            rows={2}
+            placeholder="Keterangan transaksi"
+            className="resize-none bg-white"
+            value={purpose}
+            onChange={(e) => setPurpose(e.target.value)}
+          />
+
+          <InputMoney
+            placeholder="Contoh: 50000"
+            value={amount}
+            onChange={(v: string) => setAmount(v)}
+          />
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 border-dl-border bg-white text-left font-normal text-dl-foreground"
+              >
+                <CalendarDays className="h-4 w-4 text-dl-primary" />
+                {date ? formatDate(date.toISOString()) : "Pilih tanggal"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-auto bg-white p-0">
+              <Calendar
+                mode="single"
+                selected={date}
+                onSelect={(d) => d && setDate(d)}
+                className="bg-white"
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 border-dl-border bg-white text-left font-normal text-dl-foreground"
+              >
+                <Clock className="h-4 w-4 text-dl-primary" />
+                {time} WIB
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-auto bg-white p-3">
+              <div className="flex items-center gap-2">
+                <Select
+                  value={time.slice(0, 2)}
+                  onValueChange={(h) => setTime(`${h}${time.slice(2)}`)}
+                >
+                  <SelectTrigger className="w-20 cursor-pointer bg-white">
+                    <SelectValue placeholder="Jam" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[200px]">
+                    {hours.map((h) => (
+                      <SelectItem key={h} value={h} className="cursor-pointer">
+                        {h}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-dl-muted">:</span>
+                <Select
+                  value={time.slice(3)}
+                  onValueChange={(m) => setTime(`${time.slice(0, 3)}${m}`)}
+                >
+                  <SelectTrigger className="w-20 cursor-pointer bg-white">
+                    <SelectValue placeholder="Menit" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[200px]">
+                    {minutes.map((m) => (
+                      <SelectItem key={m} value={m} className="cursor-pointer">
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Batal
+          </Button>
+          <Button
+            onClick={() =>
+              onSave({
+                ...draft,
+                category,
+                purpose: purpose.trim(),
+                amount,
+                trxDate: toDateInput(date),
+                trxTime: time,
+              })
+            }
+            disabled={!canSave}
+            className="bg-gradient-to-r from-dl-gradient-2 to-dl-primary text-white"
+          >
+            <Save className="h-4 w-4" />
+            Simpan
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const AIChatRoom = () => {
   const router = useRouter();
   const { data: session } = useSession();
@@ -119,7 +313,7 @@ const AIChatRoom = () => {
   const endRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(initialMessages.length);
   const [isRecording, setIsRecording] = useState(false);
-  const [declined, setDeclined] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [usedVoiceSeconds, setUsedVoiceSeconds] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -174,7 +368,6 @@ const AIChatRoom = () => {
     onSuccess: (result) => {
       mergeResponse(aiResponseRef.current, result.data);
       setSessionCost((c) => c + (result.usage?.cost ?? 0));
-      setDeclined(false);
       pushMessage({
         role: "ai",
         content: formatResponse(aiResponseRef.current),
@@ -182,6 +375,26 @@ const AIChatRoom = () => {
     },
     onError: (error) => {
       toastError("Gagal!", error.message);
+    },
+  });
+
+  const classifyReply = api.ai.classifyReply.useMutation({
+    onSuccess: (result, variables) => {
+      setSessionCost((c) => c + (result.usage?.cost ?? 0));
+      if (result.intent === "SAVE") {
+        saveDraft();
+        return;
+      }
+      sendMessage.mutate({
+        prompt: variables.prompt,
+        draft: aiResponseRef.current,
+      });
+    },
+    onError: (_error, variables) => {
+      sendMessage.mutate({
+        prompt: variables.prompt,
+        draft: aiResponseRef.current,
+      });
     },
   });
 
@@ -318,13 +531,12 @@ const AIChatRoom = () => {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sendMessage.isPending]);
+  }, [messages, sendMessage.isPending, classifyReply.isPending]);
 
   const resetSession = api.ai.closeAndStartNewSession.useMutation({
     onSuccess: (result) => {
       aiResponseRef.current = initialDraft();
       setMessages(initialMessages);
-      setDeclined(false);
       setSessionCost(0);
       setVoiceCost(0);
       setAiTransactionCount(result.aiSessionCount);
@@ -340,6 +552,7 @@ const AIChatRoom = () => {
   const createTransaction = api.transaction.create.useMutation({
     onSuccess: () => {
       toastSuccess("Berhasil!", "Pencatatan berhasil dibuat");
+      setEditOpen(false);
       resetSession.mutate();
     },
     onError: (error) => {
@@ -356,13 +569,30 @@ const AIChatRoom = () => {
   const remainingVoice = Math.max(MAX_VOICE_SECONDS - usedVoiceSeconds, 0);
   const voiceExhausted = remainingVoice <= 0;
 
+  const saveDraft = () =>
+    createTransaction.mutate({
+      category: aiResponseRef.current.category! as "INCOME" | "EXPENSE",
+      purpose: aiResponseRef.current.purpose!,
+      amount: aiResponseRef.current.amount!,
+      trx_date: draftDate(aiResponseRef.current) ?? new Date(),
+    });
+
   const send = () => {
     const content = input.trim();
-    if (!content) return;
+    if (
+      !content ||
+      sendMessage.isPending ||
+      createTransaction.isPending ||
+      classifyReply.isPending
+    )
+      return;
     pushMessage({ role: "user", content });
     setInput("");
-    setDeclined(false);
-    sendMessage.mutate({ prompt: content });
+    if (isDraftComplete) {
+      classifyReply.mutate({ prompt: content, draft: aiResponseRef.current });
+      return;
+    }
+    sendMessage.mutate({ prompt: content, draft: aiResponseRef.current });
   };
 
   if (loading) {
@@ -547,21 +777,10 @@ const AIChatRoom = () => {
               {message.content}
               {message.role === "ai" &&
                 i === messages.length - 1 &&
-                isDraftComplete &&
-                !declined && (
+                isDraftComplete && (
                   <div className="mt-3 flex flex-col gap-2">
                     <Button
-                      onClick={() =>
-                        createTransaction.mutate({
-                          category: aiResponseRef.current.category! as
-                            | "INCOME"
-                            | "EXPENSE",
-                          purpose: aiResponseRef.current.purpose!,
-                          amount: aiResponseRef.current.amount!,
-                          trx_date:
-                            draftDate(aiResponseRef.current) ?? new Date(),
-                        })
-                      }
+                      onClick={saveDraft}
                       disabled={createTransaction.isPending}
                       className="w-full bg-gradient-to-r from-dl-gradient-2 to-dl-primary text-white shadow-lg shadow-dl-primary/25 transition-all duration-300 hover:brightness-110"
                     >
@@ -579,11 +798,12 @@ const AIChatRoom = () => {
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => setDeclined(true)}
+                      onClick={() => setEditOpen(true)}
                       disabled={createTransaction.isPending}
                       className="w-full"
                     >
-                      Tidak
+                      <Pencil className="h-4 w-4" />
+                      Edit
                     </Button>
                   </div>
                 )}
@@ -591,7 +811,7 @@ const AIChatRoom = () => {
           </div>
         ))}
 
-        {sendMessage.isPending && (
+        {(sendMessage.isPending || classifyReply.isPending) && (
           <div className="flex gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-dl-primary/10 text-dl-primary">
               <Bot className="h-4 w-4" />
@@ -693,7 +913,12 @@ const AIChatRoom = () => {
             )}
             <Button
               onClick={send}
-              disabled={!input.trim() || sendMessage.isPending}
+              disabled={
+                !input.trim() ||
+                sendMessage.isPending ||
+                classifyReply.isPending ||
+                createTransaction.isPending
+              }
               className="h-12 shrink-0 aspect-square bg-gradient-to-r from-dl-gradient-2 to-dl-primary text-white shadow-lg shadow-dl-primary/25 transition-all duration-300 hover:brightness-110"
               aria-label="Kirim pesan"
             >
@@ -701,6 +926,25 @@ const AIChatRoom = () => {
             </Button>
           </div>
         </div>
+      )}
+
+      {editOpen && (
+        <DraftEditModal
+          draft={{ ...aiResponseRef.current }}
+          onClose={() => setEditOpen(false)}
+          onSave={(draft) => {
+            aiResponseRef.current = draft;
+            setMessages((prev) =>
+              prev.map((m, idx) =>
+                idx === prev.length - 1
+                  ? { ...m, content: formatResponse(draft) }
+                  : m,
+              ),
+            );
+            setDraftTick((t) => t + 1);
+            setEditOpen(false);
+          }}
+        />
       )}
     </div>
   );

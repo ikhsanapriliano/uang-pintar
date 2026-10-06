@@ -8,12 +8,13 @@ import {
   Trash2,
   Loader2,
   CalendarDays,
+  Clock,
   TrendingUp,
   TrendingDown,
 } from "lucide-react";
 import type { Transaction } from "@prisma/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Form,
   FormControl,
@@ -27,6 +28,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
@@ -55,6 +63,11 @@ import {
 import { api } from "@/trpc/react";
 import InputMoney from "@/components/shared/InputMoney";
 
+const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+const minutes = Array.from({ length: 60 }, (_, i) =>
+  String(i).padStart(2, "0"),
+);
+
 type Props = {
   item: Transaction;
   variant?: "icon" | "list";
@@ -64,6 +77,12 @@ const TransactionActions = ({ item, variant = "icon" }: Props) => {
   const utils = api.useUtils();
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [trxTime, setTrxTime] = useState(
+    () =>
+      `${String(item.trxDate.getHours()).padStart(2, "0")}:${String(
+        item.trxDate.getMinutes(),
+      ).padStart(2, "0")}`,
+  );
 
   const invalidate = () => {
     utils.transaction.findAll.invalidate();
@@ -161,9 +180,12 @@ const TransactionActions = ({ item, variant = "icon" }: Props) => {
           </DialogHeader>
           <Form {...form}>
             <form
-              onSubmit={form.handleSubmit((values) =>
-                editTransaction.mutate(values),
-              )}
+              onSubmit={form.handleSubmit((values) => {
+                const [h, m] = trxTime.split(":").map(Number);
+                const trxDate = new Date(values.trx_date ?? item.trxDate);
+                trxDate.setHours(h ?? 0, m ?? 0, 0, 0);
+                editTransaction.mutate({ ...values, trx_date: trxDate });
+              })}
               className="space-y-4"
             >
               <FormField
@@ -213,9 +235,10 @@ const TransactionActions = ({ item, variant = "icon" }: Props) => {
                   <FormItem>
                     <FormLabel>Keterangan</FormLabel>
                     <FormControl>
-                      <Input
+                      <Textarea
+                        rows={2}
                         placeholder="Keterangan transaksi"
-                        className="bg-white"
+                        className="resize-none bg-white"
                         {...field}
                       />
                     </FormControl>
@@ -275,6 +298,73 @@ const TransactionActions = ({ item, variant = "icon" }: Props) => {
                   </FormItem>
                 )}
               />
+              <FormItem className="flex flex-col">
+                <FormLabel>
+                  Jam {category === "INCOME" ? "Pemasukan" : "Pengeluaran"}{" "}
+                  (WIB)
+                </FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        className="cursor-pointer justify-start gap-2 border-dl-border bg-white text-left font-normal text-dl-foreground"
+                      >
+                        <Clock className="h-4 w-4 text-dl-primary" />
+                        {trxTime} WIB
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-auto bg-white p-3">
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={trxTime.slice(0, 2)}
+                        onValueChange={(h) =>
+                          setTrxTime(`${h}${trxTime.slice(2)}`)
+                        }
+                      >
+                        <SelectTrigger className="w-20 cursor-pointer bg-white">
+                          <SelectValue placeholder="Jam" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[200px]">
+                          {hours.map((h) => (
+                            <SelectItem
+                              key={h}
+                              value={h}
+                              className="cursor-pointer"
+                            >
+                              {h}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span className="text-dl-muted">:</span>
+                      <Select
+                        value={trxTime.slice(3)}
+                        onValueChange={(m) =>
+                          setTrxTime(`${trxTime.slice(0, 3)}${m}`)
+                        }
+                      >
+                        <SelectTrigger className="w-20 cursor-pointer bg-white">
+                          <SelectValue placeholder="Menit" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[200px]">
+                          {minutes.map((m) => (
+                            <SelectItem
+                              key={m}
+                              value={m}
+                              className="cursor-pointer"
+                            >
+                              {m}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
               <DialogFooter>
                 <Button
                   type="submit"

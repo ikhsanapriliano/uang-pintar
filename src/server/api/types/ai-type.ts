@@ -6,6 +6,8 @@ export type TAIResponse = {
   trxTime: string;
 };
 
+export type TAIReplyIntent = "SAVE" | "CONVERSATION";
+
 export type TAIChatCompletionUsage = {
   prompt_tokens: number;
   completion_tokens: number;

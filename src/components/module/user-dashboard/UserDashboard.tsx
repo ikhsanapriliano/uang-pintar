@@ -404,66 +404,75 @@ const UserDashboard = () => {
 
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <div className="hidden items-center gap-2 md:flex">
-            <Select
-              value={category ?? "ALL"}
-              onValueChange={(v) => {
-                setCategory(v === "ALL" ? null : (v as "INCOME" | "EXPENSE"));
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="h-8 w-[150px] cursor-pointer border-dl-border bg-white text-xs font-medium text-dl-foreground">
-                <SelectValue placeholder="Semua Kategori" />
-              </SelectTrigger>
-              <SelectContent className="bg-white">
-                <SelectItem value="ALL" className="cursor-pointer">
-                  Semua Kategori
-                </SelectItem>
-                <SelectItem value="INCOME" className="cursor-pointer">
-                  Pemasukan
-                </SelectItem>
-                <SelectItem value="EXPENSE" className="cursor-pointer">
-                  Pengeluaran
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 border-dl-border text-xs font-medium text-dl-foreground"
+            {mounted && (
+              <>
+                <Select
+                  value={category ?? "ALL"}
+                  onValueChange={(v) => {
+                    setCategory(
+                      v === "ALL" ? null : (v as "INCOME" | "EXPENSE"),
+                    );
+                    setPage(1);
+                  }}
                 >
-                  <CalendarDays className="h-4 w-4 text-dl-primary" />
-                  {filterLabel}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-[350px] bg-white p-2">
-                <DateFilterContent
-                  filterMode={filterMode}
-                  onFilterModeChange={(mode) => {
-                    setFilterMode(mode);
-                    setPage(1);
-                  }}
-                  range={range}
-                  onRangeChange={(selected) => {
-                    setRange(selected);
-                    setPage(1);
-                  }}
-                  monthSel={monthSel}
-                  onMonthChange={(sel) => {
-                    setMonthSel(sel);
-                    setPage(1);
-                  }}
-                  yearSel={yearSel}
-                  onYearChange={(year) => {
-                    setYearSel(year);
-                    setPage(1);
-                  }}
-                  onApply={() => setCalendarOpen(false)}
-                  onReset={resetFilter}
-                />
-              </PopoverContent>
-            </Popover>
+                  <SelectTrigger className="h-8 w-[150px] cursor-pointer border-dl-border bg-white text-xs font-medium text-dl-foreground">
+                    <SelectValue placeholder="Semua Kategori" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="ALL" className="cursor-pointer">
+                      Semua Kategori
+                    </SelectItem>
+                    <SelectItem value="INCOME" className="cursor-pointer">
+                      Pemasukan
+                    </SelectItem>
+                    <SelectItem value="EXPENSE" className="cursor-pointer">
+                      Pengeluaran
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 border-dl-border text-xs font-medium text-dl-foreground"
+                    >
+                      <CalendarDays className="h-4 w-4 text-dl-primary" />
+                      {filterLabel}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    className="w-[350px] bg-white p-2"
+                  >
+                    <DateFilterContent
+                      filterMode={filterMode}
+                      onFilterModeChange={(mode) => {
+                        setFilterMode(mode);
+                        setPage(1);
+                      }}
+                      range={range}
+                      onRangeChange={(selected) => {
+                        setRange(selected);
+                        setPage(1);
+                      }}
+                      monthSel={monthSel}
+                      onMonthChange={(sel) => {
+                        setMonthSel(sel);
+                        setPage(1);
+                      }}
+                      yearSel={yearSel}
+                      onYearChange={(year) => {
+                        setYearSel(year);
+                        setPage(1);
+                      }}
+                      onApply={() => setCalendarOpen(false)}
+                      onReset={resetFilter}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </>
+            )}
           </div>
 
           <div className="w-full md:hidden">
@@ -592,7 +601,7 @@ const UserDashboard = () => {
                       <TableHead className="px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
                         ID Transaksi
                       </TableHead>
-                      <TableHead className="px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
+                      <TableHead className="min-w-[250px] max-w-[250px] px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
                         Keterangan
                       </TableHead>
                       <TableHead className="px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
@@ -628,7 +637,7 @@ const UserDashboard = () => {
                           <TableCell className="px-4 py-3 font-medium text-dl-foreground">
                             {item.trxId}
                           </TableCell>
-                          <TableCell className="px-4 py-3 font-medium text-dl-foreground">
+                          <TableCell className="min-w-[250px] max-w-[250px] px-4 py-3 font-medium break-words whitespace-normal text-dl-foreground">
                             {item.purpose}
                           </TableCell>
                           <TableCell className="px-4 py-3">
