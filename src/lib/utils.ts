@@ -69,14 +69,17 @@ export function formatLongDateWithTime(dateString?: string): string {
 }
 
 export function formatCurrency(amount: number): string {
-  if (amount <= 0) return "Rp. 0";
+  const value = amount ?? 0;
+  if (value === 0) return "Rp. 0";
 
-  return new Intl.NumberFormat("id-ID", {
+  const formatted = new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount ?? 0);
+  }).format(Math.abs(value));
+
+  return value < 0 ? `-${formatted}` : formatted;
 }
 
 export const formatPercentage = (value: number) => {

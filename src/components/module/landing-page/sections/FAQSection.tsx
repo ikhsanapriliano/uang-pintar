@@ -14,22 +14,22 @@ const faqs = [
   {
     question: "Apakah Uang Pintar AI gratis?",
     answer:
-      "Ya, kamu bisa mencoba Uang Pintar AI gratis selama 7 hari. Setelah itu, kamu bisa pilih paket Pintar Ngetik Rp. 10.000/bulan atau Pintar Ngomong Rp. 20.000/bulan.",
+      "Ya, kamu bisa mencoba Uang Pintar AI gratis selama 7 hari. Setelah itu, kamu bisa pilih Paket Ngetik Rp. 10.000/bulan atau Paket Ngomong Rp. 20.000/bulan.",
   },
   {
     question: "Berapa harga berlangganan Uang Pintar AI?",
     answer:
-      "Ada dua paket berbayar: Pintar Ngetik Rp. 10.000/bulan dan Pintar Ngomong Rp. 20.000/bulan. Bayar tahunan lebih hemat 25%: Pintar Ngetik Rp. 90.000/tahun dan Pintar Ngomong Rp. 180.000/tahun.",
+      "Ada dua paket berbayar: Paket Ngetik Rp. 10.000/bulan dan Paket Ngomong Rp. 20.000/bulan. Bayar tahunan lebih hemat 17%: Paket Ngetik Rp. 100.000/tahun dan Paket Ngomong Rp. 200.000/tahun.",
   },
   {
-    question: "Apa bedanya paket Pintar Ngetik dan Pintar Ngomong?",
+    question: "Apa bedanya Paket Ngetik dan Paket Ngomong?",
     answer:
-      "Keduanya punya pencatatan manual tanpa batas dan 500 pencatatan AI. Bedanya, paket Pintar Ngomong bisa mencatat lewat suara, sedangkan paket Pintar Ngetik tidak.",
+      "Keduanya punya pencatatan manual tanpa batas dan 500 pencatatan AI. Bedanya, Paket Ngomong bisa mencatat lewat suara, sedangkan Paket Ngetik tidak.",
   },
   {
     question: "Apa bedanya paket gratis dan berbayar?",
     answer:
-      "Paket Uji Coba gratis selama 7 hari dengan 30 pencatatan AI dan 10 pencatatan suara. Paket berbayar mendapat 500 pencatatan AI per bulan (6.000 per tahun) dan pencatatan manual tanpa batas.",
+      "Paket Uji Coba gratis selama 7 hari dengan pencatatan AI terbatas dan pencatatan suara. Paket berbayar mendapat 500 pencatatan AI per bulan (6.000 per tahun) dan pencatatan manual tanpa batas.",
   },
   {
     question: "Bisakah saya upgrade atau downgrade paket?",

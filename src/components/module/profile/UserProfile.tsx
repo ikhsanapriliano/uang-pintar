@@ -4,7 +4,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Loader2, Lock, LogOut, Mail, Shield, User } from "lucide-react";
+import {
+  Bot,
+  CalendarDays,
+  Loader2,
+  Lock,
+  LogOut,
+  Mail,
+  Shield,
+  User,
+} from "lucide-react";
 import { z } from "zod";
 import { api } from "@/trpc/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +30,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { toastError, toastSuccess } from "@/lib/toast";
+import { formatDate } from "@/lib/utils";
 
 const nameSchema = z.object({
   first_name: z
@@ -37,6 +47,7 @@ type NameSchema = z.infer<typeof nameSchema>;
 
 const UserProfile = () => {
   const { data: session, update } = useSession();
+  const { data: profile } = api.user.profile.useQuery();
   const [mounted, setMounted] = useState(false);
   const [editing, setEditing] = useState(false);
   const fullName = [session?.user?.firstName, session?.user?.lastName]
@@ -131,6 +142,31 @@ const UserProfile = () => {
                       UNVERIFIED
                     </Badge>
                   )}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-dl-muted">
+                <CalendarDays className="h-4 w-4 text-dl-primary" />
+                <span className="text-dl-foreground">
+                  Mulai paket:{" "}
+                  {profile
+                    ? formatDate(profile.packageStart.toISOString())
+                    : "-"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-dl-muted">
+                <CalendarDays className="h-4 w-4 text-dl-primary" />
+                <span className="text-dl-foreground">
+                  Berakhir paket:{" "}
+                  {profile ? formatDate(profile.packageRnd.toISOString()) : "-"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-dl-muted">
+                <Bot className="h-4 w-4 text-dl-primary" />
+                <span className="text-dl-foreground">
+                  Sesi Chat AI:{" "}
+                  {profile
+                    ? `${profile.aiSessionCount} / ${profile.maxAISession}`
+                    : "-"}
                 </span>
               </div>
             </div>

@@ -74,7 +74,7 @@ export const userRouter = createTRPCRouter({
               firstName: input.first_name,
               lastName: input.last_name,
               password: hash,
-              maxAISession: 20,
+              maxAISession: 100,
               packageStart: new Date(),
               packageRnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
             },
@@ -286,6 +286,20 @@ export const userRouter = createTRPCRouter({
       if (!user) throw new TRPCError({ code: "NOT_FOUND" });
       return user;
     }),
+
+  profile: protectedProcedure.query(async ({ ctx }) => {
+    const user = await ctx.db.user.findUnique({
+      where: { id: ctx.session.userId! },
+      select: {
+        packageStart: true,
+        packageRnd: true,
+        aiSessionCount: true,
+        maxAISession: true,
+      },
+    });
+    if (!user) throw new TRPCError({ code: "NOT_FOUND" });
+    return user;
+  }),
 
   update: protectedProcedure
     .input(userUpdateSchema)

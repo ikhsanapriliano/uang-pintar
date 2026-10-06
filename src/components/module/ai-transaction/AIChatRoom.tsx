@@ -91,7 +91,7 @@ const initialDraft = (): TransactionDraft => {
   };
 };
 
-const MAX_SESSION_COST = 0.00015;
+const MAX_SESSION_COST = 0.0002;
 const MAX_VOICE_SECONDS = 20;
 const MAX_VOICE_COST = (MAX_VOICE_SECONDS / 3600) * 0.22;
 

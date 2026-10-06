@@ -7,6 +7,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Benefit = { label: string; disabled?: boolean };
 
+const yearlyDiscount = (monthly: string, yearly: string) => {
+  const m = Number(monthly.replace(/[^\d]/g, ""));
+  const y = Number(yearly.replace(/[^\d]/g, ""));
+  return Math.round((1 - y / (m * 12)) * 100);
+};
+
 const trialPlan = {
   name: "Uji Coba",
   icon: Rocket,
@@ -16,8 +22,8 @@ const trialPlan = {
   benefits: [
     { label: "Gratis selama 7 hari" },
     { label: "Unlimited Pencatatan Manual" },
-    { label: "30 Pencatatan AI" },
-    { label: "10 Pencatatan Suara" },
+    { label: "Pencatatan AI Terbatas" },
+    { label: "Pencatatan Lewat Suara" },
     { label: "Riwayat Catatan Keuangan" },
   ] as Benefit[],
   buttonVariant: "outline" as const,
@@ -28,7 +34,7 @@ const paidPlans = [
     name: "Paket Ngetik",
     icon: NotebookPen,
     monthlyPrice: "Rp. 10.000",
-    yearlyPrice: "Rp. 90.000",
+    yearlyPrice: "Rp. 100.000",
     description: "Cocok buat yang baru mau mulai mencatat keuangan.",
     benefits: [
       { label: "Unlimited Pencatatan Manual" },
@@ -43,7 +49,7 @@ const paidPlans = [
     name: "Paket Ngomong",
     icon: Mic,
     monthlyPrice: "Rp. 20.000",
-    yearlyPrice: "Rp. 180.000",
+    yearlyPrice: "Rp. 200.000",
     description: "Cocok buat yang ingin mencatat keuangan tinggal ngomong.",
     benefits: [
       { label: "Unlimited Pencatatan Manual" },
@@ -66,6 +72,7 @@ const paidPlans = [
       { label: "Riwayat Catatan Keuangan" },
       { label: "Pembagian Dompet Keuangan" },
       { label: "Analisis Keuangan oleh AI" },
+      { label: "OCR (Tinggal Foto Struk)" },
     ] as Benefit[],
     buttonVariant: "outline" as const,
     disabled: true,
@@ -104,9 +111,6 @@ const PricingSection = () => {
           </TabsTrigger>
           <TabsTrigger value="tahun" className="rounded-full px-6 py-2">
             Per Tahun
-            <span className="ml-2 rounded-full bg-dl-primary px-2 py-0.5 text-xs font-bold text-white">
-              Hemat 25%
-            </span>
           </TabsTrigger>
         </TabsList>
 
@@ -160,7 +164,7 @@ const PricingSection = () => {
 
                     {isDisabled && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-dl-error px-4 py-1 text-xs font-bold text-white shadow-md">
-                        Kuota Sudah Penuh
+                        Dalam Pengembangan
                       </div>
                     )}
 
@@ -193,17 +197,36 @@ const PricingSection = () => {
                       </span>
                     </div>
 
-                    {period === "tahun" && "monthlyPrice" in plan && (
+                    {"monthlyPrice" in plan && (
                       <p className="-mt-4 text-xs font-semibold text-dl-primary">
-                        Setara{" "}
-                        {(
-                          Number(plan.yearlyPrice.replace(/[^\d]/g, "")) / 12
-                        ).toLocaleString("id-ID", {
-                          style: "currency",
-                          currency: "IDR",
-                          maximumFractionDigits: 0,
-                        })}
-                        /bulan — hemat 25%
+                        {period === "tahun" ? (
+                          <>
+                            Setara{" "}
+                            {(
+                              Number(plan.yearlyPrice.replace(/[^\d]/g, "")) /
+                              12
+                            ).toLocaleString("id-ID", {
+                              style: "currency",
+                              currency: "IDR",
+                              maximumFractionDigits: 0,
+                            })}
+                            /bulan — hemat{" "}
+                            {yearlyDiscount(
+                              plan.monthlyPrice,
+                              plan.yearlyPrice,
+                            )}
+                            %
+                          </>
+                        ) : (
+                          <>
+                            Hemat{" "}
+                            {yearlyDiscount(
+                              plan.monthlyPrice,
+                              plan.yearlyPrice,
+                            )}
+                            % dengan paket tahunan
+                          </>
+                        )}
                       </p>
                     )}
 
