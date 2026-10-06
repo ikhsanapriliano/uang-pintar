@@ -10,7 +10,7 @@ export async function proxy(request: NextRequest) {
   if (authPaths.includes(pathname)) {
     const token = await getToken({ req: request });
     if (token && token.status !== "UNVERIFIED") {
-      return NextResponse.redirect(new URL("/merchant", request.url));
+      return NextResponse.redirect(new URL("/user", request.url));
     }
   }
 
@@ -28,7 +28,7 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  if (pathname.startsWith("/merchant")) {
+  if (pathname.startsWith("/user")) {
     const token = await getToken({ req: request });
     if (token?.role === "ADMIN") {
       return NextResponse.redirect(new URL("/tdibmkr", request.url));

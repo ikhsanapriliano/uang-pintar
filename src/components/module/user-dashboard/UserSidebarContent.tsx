@@ -26,18 +26,18 @@ type Props = {
 };
 
 const navItems = [
-  { label: "Beranda", href: "/merchant", icon: Home },
+  { label: "Beranda", href: "/user/dashboard", icon: Home },
   {
     label: "Catat Manual",
-    href: "/merchant/manual-transaction",
+    href: "/user/manual-transaction",
     icon: NotebookPen,
   },
   {
     label: "Catat dengan AI",
-    href: "/merchant/ai-transaction",
+    href: "/user",
     icon: Sparkles,
   },
-  { label: "Profil", href: "/merchant/profile", icon: User },
+  { label: "Profil", href: "/user/profile", icon: User },
 ];
 
 const UserSidebarContent = ({

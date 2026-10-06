@@ -68,7 +68,7 @@ const LoginForm = () => {
       return;
     }
     toastSuccess("Login Berhasil!", "Selamat datang kembali");
-    router.push("/merchant");
+    router.push("/user");
   };
 
   return (

@@ -85,7 +85,7 @@ const ManualTransactionForm = () => {
   const createTransaction = api.transaction.create.useMutation({
     onSuccess: () => {
       toastSuccess("Berhasil!", "Transaksi berhasil dicatat");
-      router.push("/merchant");
+      router.push("/user");
     },
     onError: (error) => {
       toastError("Gagal!", error.message);

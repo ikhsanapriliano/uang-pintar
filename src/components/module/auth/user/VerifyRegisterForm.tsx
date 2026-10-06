@@ -57,7 +57,7 @@ const VerifyRegisterForm = ({ email }: Props) => {
         return;
       }
       toastSuccess("Verifikasi Berhasil!", "Akun Anda telah terverifikasi");
-      router.push("/merchant");
+      router.push("/user");
     },
     onError: (error) => {
       toastError("Verifikasi Gagal!", error.message);

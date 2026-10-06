@@ -640,7 +640,7 @@ const AIChatRoom = () => {
           pencatatan manual untuk tetap mencatat pemasukan dan pengeluaranmu.
         </p>
         <Button
-          onClick={() => router.push("/merchant/manual-transaction")}
+          onClick={() => router.push("/user/manual-transaction")}
           className="bg-gradient-to-r from-dl-gradient-2 to-dl-primary text-white shadow-lg shadow-dl-primary/25 transition-all duration-300 hover:brightness-110"
         >
           Ke Pencatatan Manual
