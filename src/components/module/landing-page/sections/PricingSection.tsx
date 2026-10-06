@@ -48,8 +48,8 @@ const paidPlans = [
   {
     name: "Paket Ngomong",
     icon: Mic,
-    monthlyPrice: "Rp. 20.000",
-    yearlyPrice: "Rp. 200.000",
+    monthlyPrice: "Rp. 30.000",
+    yearlyPrice: "Rp. 300.000",
     description: "Cocok buat yang ingin mencatat keuangan tinggal ngomong.",
     benefits: [
       { label: "Unlimited Pencatatan Manual" },

@@ -14,12 +14,12 @@ const faqs = [
   {
     question: "Apakah Uang Pintar AI gratis?",
     answer:
-      "Ya, kamu bisa mencoba Uang Pintar AI gratis selama 7 hari. Setelah itu, kamu bisa pilih Paket Ngetik Rp. 10.000/bulan atau Paket Ngomong Rp. 20.000/bulan.",
+      "Ya, kamu bisa mencoba Uang Pintar AI gratis selama 7 hari. Setelah itu, kamu bisa pilih Paket Ngetik Rp. 10.000/bulan atau Paket Ngomong Rp. 30.000/bulan.",
   },
   {
     question: "Berapa harga berlangganan Uang Pintar AI?",
     answer:
-      "Ada dua paket berbayar: Paket Ngetik Rp. 10.000/bulan dan Paket Ngomong Rp. 20.000/bulan. Bayar tahunan lebih hemat 17%: Paket Ngetik Rp. 100.000/tahun dan Paket Ngomong Rp. 200.000/tahun.",
+      "Ada dua paket berbayar: Paket Ngetik Rp. 10.000/bulan dan Paket Ngomong Rp. 30.000/bulan. Bayar tahunan lebih hemat 17%: Paket Ngetik Rp. 100.000/tahun dan Paket Ngomong Rp. 300.000/tahun.",
   },
   {
     question: "Apa bedanya Paket Ngetik dan Paket Ngomong?",
