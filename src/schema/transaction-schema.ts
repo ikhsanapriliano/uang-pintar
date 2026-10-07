@@ -1,13 +1,20 @@
 import { z } from "zod";
 import { paginationSchema } from "./pagination-schema";
 
-export const transactionCreateSchema = z.object({
-  purpose: z.string().min(1, "Keterangan harus diisi"),
-  category: z.enum(["INCOME", "EXPENSE"]),
+export const transactionDetailSchema = z.object({
+  name: z.string().min(1, "Nama rincian harus diisi"),
   amount: z.union([
     z.string().min(1, "Nominal harus diisi"),
     z.number().positive("Nominal harus diisi"),
   ]),
+});
+
+export type TransactionDetailSchema = z.infer<typeof transactionDetailSchema>;
+
+export const transactionCreateSchema = z.object({
+  purpose: z.string().min(1, "Keterangan harus diisi"),
+  category: z.enum(["INCOME", "EXPENSE"]),
+  details: z.array(transactionDetailSchema).min(1, "Minimal satu rincian"),
   trx_date: z.date().optional(),
 });
 

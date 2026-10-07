@@ -8,10 +8,15 @@ import type {
   TAIResponse,
 } from "@/server/api/types/ai-type";
 
+const draftDetailSchema = z.object({
+  name: z.string().nullable().optional(),
+  amount: z.union([z.string(), z.number()]).nullable().optional(),
+});
+
 const draftSchema = z.object({
   category: z.string().nullable().optional(),
   purpose: z.string().nullable().optional(),
-  amount: z.union([z.string(), z.number()]).nullable().optional(),
+  details: z.array(draftDetailSchema).nullable().optional(),
   trxDate: z.string().nullable().optional(),
   trxTime: z.string().nullable().optional(),
 });
@@ -52,8 +57,8 @@ const wib = new Date().toLocaleString("sv-SE", {
 });
 
 const SYSTEM_PROMPT = `Waktu: ${wib} (WIB). Ubah transaksi menjadi JSON saja:
-{"category":"INCOME"|"EXPENSE"|null,"purpose":string|null,"amount":number|null,"trxDate":"YYYY-MM-DD"|null,"trxTime":"HH:mm"|null}
-INCOME=masuk, EXPENSE=keluar. null jika tak disebut. amount angka tanpa format (50000). Waktu relatif ke sekarang.`;
+{"category":"INCOME"|"EXPENSE"|null,"purpose":string|null,"details":[{"name":string,"amount":number}],"trxDate":"YYYY-MM-DD"|null,"trxTime":"HH:mm"|null}
+INCOME=masuk, EXPENSE=keluar. details berisi rincian item (nama + nominal), null jika tak disebut. amount angka tanpa format (50000). Waktu relatif ke sekarang.`;
 
 const CLASSIFY_PROMPT = `Tentukan intent balasan atas transaksi tertunda. Balas HANYA JSON:
 {"intent":"SAVE"} jika setuju menyimpan tanpa maksud lain.
@@ -64,7 +69,7 @@ const CLASSIFY_MODEL = "google/gemma-3-4b-it";
 const draftSummary = (draft: {
   category?: string | null;
   purpose?: string | null;
-  amount?: string | number | null;
+  details?: { name?: string | null; amount?: string | number | null }[] | null;
 }) =>
   [
     `Kategori: ${
@@ -75,7 +80,10 @@ const draftSummary = (draft: {
           : "-"
     }`,
     `Keterangan: ${draft.purpose ?? "-"}`,
-    `Nominal: ${draft.amount ?? "-"}`,
+    `Rincian:`,
+    ...(draft.details && draft.details.length > 0
+      ? draft.details.map((d) => `- ${d.name ?? "-"}: ${d.amount ?? "-"}`)
+      : ["-"]),
   ].join("\n");
 
 const chatCompletion = async (

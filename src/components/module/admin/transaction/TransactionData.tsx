@@ -244,7 +244,7 @@ const TransactionData = () => {
                         }
                       >
                         {item.category === "INCOME" ? "+" : "-"}Rp{" "}
-                        {formatStandardNumber(item.amount)}
+                        {formatStandardNumber(item.totalAmount)}
                       </TableCell>
                     </TableRow>
                   ))

@@ -604,6 +604,9 @@ const UserDashboard = () => {
                       <TableHead className="min-w-[300px] max-w-[300px] px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
                         Keterangan
                       </TableHead>
+                      <TableHead className="min-w-[300px] max-w-[300px] px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
+                        Rincian
+                      </TableHead>
                       <TableHead className="px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
                         Kategori
                       </TableHead>
@@ -625,7 +628,7 @@ const UserDashboard = () => {
                     {list?.items.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={7}
+                          colSpan={8}
                           className="py-10 text-center text-sm text-dl-muted"
                         >
                           Belum ada transaksi
@@ -639,6 +642,27 @@ const UserDashboard = () => {
                           </TableCell>
                           <TableCell className="min-w-[300px] max-w-[300px] px-4 py-3 font-medium break-words whitespace-normal text-dl-foreground">
                             {item.purpose}
+                          </TableCell>
+                          <TableCell className="min-w-[300px] max-w-[300px] px-4 py-3 align-top">
+                            {item.details.length > 0 ? (
+                              <ul className="space-y-0.5 text-xs text-dl-muted">
+                                {item.details.map((detail) => (
+                                  <li
+                                    key={detail.id}
+                                    className="flex items-center justify-between gap-2"
+                                  >
+                                    <span className="truncate">
+                                      {detail.name}
+                                    </span>
+                                    <span className="tabular-nums">
+                                      {formatCurrency(detail.amount)}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <span className="text-xs text-dl-muted">-</span>
+                            )}
                           </TableCell>
                           <TableCell className="px-4 py-3">
                             <span
@@ -662,7 +686,7 @@ const UserDashboard = () => {
                                 : "text-rose-700",
                             )}
                           >
-                            {formatCurrency(item.amount)}
+                            {formatCurrency(item.totalAmount)}
                           </TableCell>
                           <TableCell className="px-4 py-3 text-dl-foreground">
                             {formatDateWithTime(item.trxDate.toISOString())}
@@ -701,7 +725,7 @@ const UserDashboard = () => {
                                 : "text-rose-700",
                             )}
                           >
-                            {formatCurrency(item.amount)}
+                            {formatCurrency(item.totalAmount)}
                           </p>
                         </div>
                         <ChevronDown className="h-4 w-4 shrink-0 text-dl-muted transition-transform group-open:rotate-180" />
@@ -727,6 +751,24 @@ const UserDashboard = () => {
                                 : "Pengeluaran"}
                             </dd>
                           </div>
+                          {item.details.length > 0 && (
+                            <div className="space-y-1 border-t border-dl-border pt-1.5">
+                              <p className="text-dl-muted">Rincian</p>
+                              {item.details.map((detail) => (
+                                <div
+                                  key={detail.id}
+                                  className="flex items-center justify-between gap-3 pl-2"
+                                >
+                                  <span className="truncate text-dl-foreground">
+                                    {detail.name}
+                                  </span>
+                                  <span className="tabular-nums text-dl-foreground">
+                                    {formatCurrency(detail.amount)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           <div className="flex items-center justify-between gap-3">
                             <dt className="text-dl-muted">Tanggal Transaksi</dt>
                             <dd className="text-dl-foreground">

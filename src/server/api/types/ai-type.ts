@@ -1,7 +1,12 @@
+export type TAITransactionDetail = {
+  name: string | null;
+  amount: string | number | null;
+};
+
 export type TAIResponse = {
   category: string;
   purpose: string;
-  amount: string;
+  details: TAITransactionDetail[];
   trxDate: string;
   trxTime: string;
 };

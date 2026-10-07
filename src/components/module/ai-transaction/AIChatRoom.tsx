@@ -12,17 +12,26 @@ import {
   Loader2,
   Mic,
   MicOff,
-  Pencil,
   Plus,
   Save,
   Send,
   Sparkles,
+  Trash2,
   TrendingDown,
   TrendingUp,
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  PiCalendarBlank,
+  PiCalculator,
+  PiFloppyDisk,
+  PiPencilSimple,
+  PiReceipt,
+  PiTag,
+} from "react-icons/pi";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +68,7 @@ type Message = {
   id: number;
   role: "user" | "ai";
   content: string;
+  draft?: TransactionDraft;
 };
 
 const initialMessages: Message[] = [
@@ -87,11 +97,11 @@ const initialDraft = (): TransactionDraft => {
   return {
     trxDate: toDateInput(now),
     trxTime: toTimeInput(now),
-    amount: "1",
+    details: [{ name: "", amount: "1" }],
   };
 };
 
-const MAX_SESSION_COST = 0.0002;
+const MAX_SESSION_COST = 0.000265;
 const MAX_VOICE_SECONDS = 35;
 const MAX_VOICE_COST = (MAX_VOICE_SECONDS / 3600) * 0.22;
 
@@ -102,17 +112,14 @@ const draftDate = (data: Partial<TAIResponse>): Date | null => {
 };
 
 const isComplete = (data: Partial<TAIResponse>) =>
-  !!data.category && !!data.purpose && !!data.amount;
+  !!data.category &&
+  !!data.purpose &&
+  !!data.details?.some((d) => Number(d.amount) > 0);
 
-const formatResponse = (data: Partial<TAIResponse>) => {
-  const date = draftDate(data);
-  return `Berikut catatan kamu:
-- Kategori: ${data.category === "EXPENSE" ? "Pengeluaran" : data.category === "INCOME" ? "Pemasukan" : "-"}
-- Keterangan: ${data.purpose ?? "-"}
-- Nominal: ${formatCurrency(Number(data.amount) || 0) ?? "-"}
-- Tanggal: ${date ? formatDateWithTime(date.toISOString()) : "-"}
-${isComplete(data) ? "\nApakah kamu mau catat transaksinya?" : ""}`;
-};
+const snapshotDraft = (draft: TransactionDraft): TransactionDraft => ({
+  ...draft,
+  details: draft.details?.map((d) => ({ ...d })),
+});
 
 const mergeResponse = (
   draft: TransactionDraft,
@@ -142,11 +149,42 @@ const DraftEditModal = ({ draft, onClose, onSave }: DraftEditModalProps) => {
     draft.category === "INCOME" ? "INCOME" : "EXPENSE",
   );
   const [purpose, setPurpose] = useState(draft.purpose ?? "");
-  const [amount, setAmount] = useState(String(draft.amount ?? ""));
+  const [details, setDetails] = useState<{ name: string; amount: string }[]>(
+    draft.details && draft.details.length > 0
+      ? draft.details.map((d) => ({
+          name: d.name ?? "",
+          amount: d.amount != null ? String(d.amount) : "",
+        }))
+      : [{ name: "", amount: "" }],
+  );
   const [date, setDate] = useState(initialDate);
   const [time, setTime] = useState(toTimeInput(initialDate));
 
-  const canSave = purpose.trim().length > 0 && Number(amount) > 0;
+  const total = details.reduce(
+    (sum, d) => sum + (Number(String(d.amount).replace(/\D/g, "")) || 0),
+    0,
+  );
+
+  const updateDetail = (
+    index: number,
+    patch: Partial<{ name: string; amount: string }>,
+  ) =>
+    setDetails((prev) =>
+      prev.map((d, i) => (i === index ? { ...d, ...patch } : d)),
+    );
+
+  const addDetail = () =>
+    setDetails((prev) => [...prev, { name: "", amount: "" }]);
+
+  const removeDetail = (index: number) =>
+    setDetails((prev) =>
+      prev.length > 1 ? prev.filter((_, i) => i !== index) : prev,
+    );
+
+  const canSave =
+    purpose.trim().length > 0 &&
+    details.length > 0 &&
+    details.every((d) => d.name.trim().length > 0 && Number(d.amount) > 0);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -197,11 +235,54 @@ const DraftEditModal = ({ draft, onClose, onSave }: DraftEditModalProps) => {
             onChange={(e) => setPurpose(e.target.value)}
           />
 
-          <InputMoney
-            placeholder="Contoh: 50000"
-            value={amount}
-            onChange={(v: string) => setAmount(v)}
-          />
+          <div className="space-y-2">
+            {details.map((detail, index) => (
+              <div key={index} className="flex items-start gap-2">
+                <Input
+                  placeholder="Nama rincian"
+                  className="flex-1 bg-white"
+                  value={detail.name}
+                  onChange={(e) =>
+                    updateDetail(index, { name: e.target.value })
+                  }
+                />
+                <div className="w-36">
+                  <InputMoney
+                    placeholder="50000"
+                    value={detail.amount}
+                    onChange={(v: string) => updateDetail(index, { amount: v })}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={details.length === 1}
+                  onClick={() => removeDetail(index)}
+                  aria-label="Hapus rincian"
+                  className="mt-0.5 shrink-0 text-dl-muted hover:bg-dl-error/10 hover:text-dl-error"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addDetail}
+              className="gap-2 border-dashed border-dl-border text-dl-muted"
+            >
+              <Plus className="h-4 w-4" />
+              Tambah Rincian
+            </Button>
+            <div className="flex items-center justify-between border-t border-dl-border pt-2 text-sm">
+              <span className="text-dl-muted">Total</span>
+              <span className="font-semibold text-dl-foreground">
+                {formatCurrency(total)}
+              </span>
+            </div>
+          </div>
 
           <Popover>
             <PopoverTrigger asChild>
@@ -280,7 +361,10 @@ const DraftEditModal = ({ draft, onClose, onSave }: DraftEditModalProps) => {
                 ...draft,
                 category,
                 purpose: purpose.trim(),
-                amount,
+                details: details.map((d) => ({
+                  name: d.name.trim(),
+                  amount: d.amount,
+                })),
                 trxDate: toDateInput(date),
                 trxTime: time,
               })
@@ -294,6 +378,152 @@ const DraftEditModal = ({ draft, onClose, onSave }: DraftEditModalProps) => {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+};
+
+const DETAIL_ICON = PiTag;
+
+type TransactionCardProps = {
+  draft: TransactionDraft;
+  showActions: boolean;
+  saving: boolean;
+  onSave: () => void;
+  onEdit: () => void;
+};
+
+const TransactionCard = ({
+  draft,
+  showActions,
+  saving,
+  onSave,
+  onEdit,
+}: TransactionCardProps) => {
+  const isIncome = draft.category === "INCOME";
+  const details = (draft.details ?? []).filter(
+    (d) => d.name || d.amount != null,
+  );
+  const total = details.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const date = draftDate(draft);
+
+  return (
+    <div className="min-w-0 max-w-[80%] flex-1 rounded-xl border border-dl-border bg-white p-2 shadow-sm sm:p-3">
+      <p className="text-xs font-semibold text-dl-foreground">
+        Berikut catatan transaksi kamu:
+      </p>
+
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-dl-primary/10 text-sm text-dl-primary">
+            <PiReceipt />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] text-dl-muted">Keterangan</p>
+            <p className="text-xs font-bold break-words text-dl-foreground">
+              {draft.purpose || "-"}
+            </p>
+          </div>
+        </div>
+        <span
+          className={cn(
+            "inline-flex min-w-0 max-w-full items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+            isIncome
+              ? "bg-emerald-50 text-emerald-700"
+              : "bg-rose-50 text-rose-700",
+          )}
+        >
+          {isIncome ? (
+            <TrendingUp className="h-3 w-3 shrink-0" />
+          ) : (
+            <TrendingDown className="h-3 w-3 shrink-0" />
+          )}
+          <span className="break-words whitespace-normal">
+            {draft.category ? (isIncome ? "Pemasukan" : "Pengeluaran") : "-"}
+          </span>
+        </span>
+      </div>
+
+      {details.length > 0 && (
+        <>
+          <div className="mt-2 rounded-lg bg-dl-background p-1.5">
+            <p className="mb-1 px-1.5 text-[10px] text-dl-muted">Rincian</p>
+            <div className="space-y-1">
+              {details.map((detail, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 rounded-md bg-white px-2 py-1"
+                >
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-dl-primary/10 text-xs text-dl-primary">
+                    <DETAIL_ICON />
+                  </div>
+                  <p className="min-w-0 flex-1 text-[11px] font-semibold break-words text-dl-foreground">
+                    {detail.name || "-"}
+                  </p>
+                  <p className="shrink-0 text-[11px] font-bold tabular-nums text-dl-foreground">
+                    {formatCurrency(Number(detail.amount) || 0)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-1.5 flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2">
+            <span className="flex items-center gap-1 text-xs font-bold text-emerald-700">
+              <PiCalculator className="h-3.5 w-3.5" />
+              <span>Total</span>
+            </span>
+            <span className="text-sm font-extrabold text-emerald-700">
+              {formatCurrency(total)}
+            </span>
+          </div>
+        </>
+      )}
+
+      <div className="mt-1.5 rounded-lg bg-dl-background px-3 py-1.5">
+        <p className="flex items-center gap-1 text-[10px] text-dl-muted">
+          <PiCalendarBlank className="h-3 w-3" />
+          Tanggal
+        </p>
+        <p className="mt-0.5 text-[11px] text-dl-foreground">
+          {date ? formatDateWithTime(date.toISOString()) : "-"}
+        </p>
+      </div>
+
+      {showActions && (
+        <>
+          <p className="mt-2 text-xs text-dl-foreground">
+            Apakah kamu mau catat transaksinya?
+          </p>
+          <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+            <Button
+              onClick={onSave}
+              disabled={saving}
+              className="h-9 w-full bg-gradient-to-r from-dl-gradient-2 to-dl-primary text-xs text-white shadow-lg shadow-dl-primary/25 transition-all duration-300 hover:brightness-110"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <PiFloppyDisk className="h-3.5 w-3.5" />
+                  Ya, Catat
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={onEdit}
+              disabled={saving}
+              className="h-9 w-full text-xs"
+            >
+              <PiPencilSimple className="h-3.5 w-3.5" />
+              Edit
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
   );
 };
 
@@ -344,7 +574,8 @@ const AIChatRoom = () => {
         loaded.push({
           id: ++lastId,
           role: "ai",
-          content: formatResponse({ ...draft }),
+          content: "",
+          draft: snapshotDraft(draft),
         });
       }
       aiResponseRef.current = draft;
@@ -377,7 +608,8 @@ const AIChatRoom = () => {
       setSessionCost((c) => c + (result.usage?.cost ?? 0));
       pushMessage({
         role: "ai",
-        content: formatResponse(aiResponseRef.current),
+        content: "",
+        draft: snapshotDraft(aiResponseRef.current),
       });
     },
     onError: (error) => {
@@ -580,7 +812,9 @@ const AIChatRoom = () => {
     createTransaction.mutate({
       category: aiResponseRef.current.category! as "INCOME" | "EXPENSE",
       purpose: aiResponseRef.current.purpose!,
-      amount: aiResponseRef.current.amount!,
+      details: (aiResponseRef.current.details ?? [])
+        .filter((d) => d.name && Number(d.amount) > 0)
+        .map((d) => ({ name: d.name!, amount: d.amount! })),
       trx_date: draftDate(aiResponseRef.current) ?? new Date(),
     });
 
@@ -751,72 +985,59 @@ const AIChatRoom = () => {
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
-        {messages.map((message, i) => (
-          <div
-            key={message.id}
-            className={cn(
-              "flex gap-3",
-              message.role === "user" && "flex-row-reverse",
-            )}
-          >
+        {messages.map((message, i) => {
+          const isLast = i === messages.length - 1;
+          if (message.role === "ai" && message.draft) {
+            return (
+              <div key={message.id} className="flex items-start gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-dl-primary/10 text-dl-primary">
+                  <Bot className="h-4 w-4" />
+                </div>
+                <TransactionCard
+                  draft={message.draft}
+                  showActions={isLast && isComplete(message.draft)}
+                  saving={createTransaction.isPending}
+                  onSave={saveDraft}
+                  onEdit={() => setEditOpen(true)}
+                />
+              </div>
+            );
+          }
+          return (
             <div
+              key={message.id}
               className={cn(
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                message.role === "ai"
-                  ? "bg-dl-primary/10 text-dl-primary"
-                  : "bg-dl-foreground text-white",
+                "flex gap-3",
+                message.role === "user" && "flex-row-reverse",
               )}
             >
-              {message.role === "ai" ? (
-                <Bot className="h-4 w-4" />
-              ) : (
-                <User className="h-4 w-4" />
-              )}
-            </div>
-            <div
-              className={cn(
-                "max-w-[75%] whitespace-pre-line rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-                message.role === "ai"
-                  ? "rounded-tl-sm border border-dl-border bg-white text-dl-foreground"
-                  : "rounded-tr-sm bg-gradient-to-r from-dl-gradient-2 to-dl-primary text-white",
-              )}
-            >
-              {message.content}
-              {message.role === "ai" &&
-                i === messages.length - 1 &&
-                isDraftComplete && (
-                  <div className="mt-3 flex flex-col gap-2">
-                    <Button
-                      onClick={saveDraft}
-                      disabled={createTransaction.isPending}
-                      className="w-full bg-gradient-to-r from-dl-gradient-2 to-dl-primary text-white shadow-lg shadow-dl-primary/25 transition-all duration-300 hover:brightness-110"
-                    >
-                      {createTransaction.isPending ? (
-                        <>
-                          <Loader2 className="animate-spin" />
-                          Menyimpan...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4" />
-                          Ya, Catat
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setEditOpen(true)}
-                      disabled={createTransaction.isPending}
-                      className="w-full"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Edit
-                    </Button>
-                  </div>
+              <div
+                className={cn(
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                  message.role === "ai"
+                    ? "bg-dl-primary/10 text-dl-primary"
+                    : "bg-dl-foreground text-white",
                 )}
+              >
+                {message.role === "ai" ? (
+                  <Bot className="h-4 w-4" />
+                ) : (
+                  <User className="h-4 w-4" />
+                )}
+              </div>
+              <div
+                className={cn(
+                  "max-w-[75%] whitespace-pre-line rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+                  message.role === "ai"
+                    ? "rounded-tl-sm border border-dl-border bg-white text-dl-foreground"
+                    : "rounded-tr-sm bg-gradient-to-r from-dl-gradient-2 to-dl-primary text-white",
+                )}
+              >
+                {message.content}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {(sendMessage.isPending || classifyReply.isPending) && (
           <div className="flex gap-3">
@@ -944,7 +1165,7 @@ const AIChatRoom = () => {
             setMessages((prev) =>
               prev.map((m, idx) =>
                 idx === prev.length - 1
-                  ? { ...m, content: formatResponse(draft) }
+                  ? { ...m, draft: snapshotDraft(draft) }
                   : m,
               ),
             );

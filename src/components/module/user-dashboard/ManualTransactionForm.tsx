@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import {
   Loader2,
   Save,
@@ -11,8 +11,11 @@ import {
   Clock,
   TrendingUp,
   TrendingDown,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Form,
   FormControl,
@@ -42,7 +45,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatCurrency } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
   transactionCreateSchema,
@@ -66,11 +69,21 @@ const ManualTransactionForm = () => {
     defaultValues: {
       purpose: "",
       category: "INCOME",
-      amount: "",
+      details: [{ name: "", amount: "" }],
     },
   });
 
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "details",
+  });
+
   const category = form.watch("category");
+  const details = form.watch("details");
+  const total = details.reduce(
+    (sum, d) => sum + (Number(String(d.amount).replace(/\D/g, "")) || 0),
+    0,
+  );
 
   useEffect(() => {
     const now = new Date();
@@ -183,23 +196,74 @@ const ManualTransactionForm = () => {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nominal (Rp)</FormLabel>
-                    <FormControl>
-                      <InputMoney
-                        placeholder="50.000"
-                        value={field.value}
-                        onChange={(e: any) => field.onChange(Number(e) || 0)}
+              <FormItem>
+                <FormLabel>Rincian</FormLabel>
+                <div className="space-y-2">
+                  {fields.map((item, index) => (
+                    <div key={item.id} className="flex items-start gap-2">
+                      <FormField
+                        control={form.control}
+                        name={`details.${index}.name`}
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormControl>
+                              <Input
+                                placeholder="Nama rincian"
+                                className="bg-white"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormField
+                        control={form.control}
+                        name={`details.${index}.amount`}
+                        render={({ field }) => (
+                          <FormItem className="w-36 sm:w-40">
+                            <FormControl>
+                              <InputMoney
+                                placeholder="50.000"
+                                value={field.value}
+                                onChange={(e: any) => field.onChange(e)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        disabled={fields.length === 1}
+                        onClick={() => remove(index)}
+                        aria-label="Hapus rincian"
+                        className="mt-0.5 shrink-0 text-dl-muted hover:bg-dl-error/10 hover:text-dl-error"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({ name: "", amount: "" })}
+                    className="gap-2 border-dashed border-dl-border text-dl-muted"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Tambah Rincian
+                  </Button>
+                  <div className="flex items-center justify-between border-t border-dl-border pt-2 text-sm">
+                    <span className="text-dl-muted">Total</span>
+                    <span className="font-semibold text-dl-foreground">
+                      {formatCurrency(total)}
+                    </span>
+                  </div>
+                </div>
+              </FormItem>
               <FormField
                 control={form.control}
                 name="trx_date"
