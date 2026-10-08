@@ -15,7 +15,7 @@ type Props = {
 const bottomNavItems = [
   { label: "Beranda", href: "/user/dashboard", icon: Home },
   {
-    label: "Catat Manual",
+    label: "Catat",
     href: "/user/manual-transaction",
     icon: NotebookPen,
   },

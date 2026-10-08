@@ -64,7 +64,7 @@ const CLASSIFY_PROMPT = `Tentukan intent balasan atas transaksi tertunda. Balas 
 {"intent":"SAVE"} jika setuju menyimpan tanpa maksud lain.
 {"intent":"CONVERSATION"} untuk info baru, koreksi, pertanyaan, penolakan, atau lainnya. Ragu -> CONVERSATION.`;
 
-const CLASSIFY_MODEL = "google/gemma-3-4b-it";
+const CLASSIFY_MODEL = "xiaomi/mimo-v2.6-flash";
 
 const draftSummary = (draft: {
   category?: string | null;
@@ -88,7 +88,7 @@ const draftSummary = (draft: {
 
 const chatCompletion = async (
   messages: { role: "system" | "user"; content: string }[],
-  model = "google/gemma-3-4b-it",
+  model = "xiaomi/mimo-v2.6-flash",
   maxTokens = 200,
 ) => {
   const apiKey = process.env.OPENROUTER;

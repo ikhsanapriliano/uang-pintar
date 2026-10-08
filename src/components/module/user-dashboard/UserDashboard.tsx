@@ -31,6 +31,14 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import type { Transaction, TransactionDetail } from "@prisma/client";
 import { Calendar } from "@/components/ui/calendar";
 import {
   cn,
@@ -44,7 +52,6 @@ import {
   TrendingDown,
   CalendarDays,
   X,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -54,6 +61,7 @@ import type { DateRange } from "react-day-picker";
 import { useDebounced } from "@/lib/debounced";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
+import { PiCalculator, PiTag } from "react-icons/pi";
 import TransactionActions from "./TransactionActions";
 
 const FILTER_MODES = [
@@ -258,6 +266,9 @@ const UserDashboard = () => {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [searchInput, setSearchInput] = useState("");
+  const [selectedItem, setSelectedItem] = useState<
+    (Transaction & { details: TransactionDetail[] }) | null
+  >(null);
   const search = useDebounced(searchInput);
 
   useEffect(() => {
@@ -711,83 +722,130 @@ const UserDashboard = () => {
                   </p>
                 ) : (
                   list?.items.map((item) => (
-                    <details key={item.id} className="group">
-                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-6 py-3 [&::-webkit-details-marker]:hidden">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-dl-foreground">
-                            {item.purpose}
-                          </p>
-                          <p
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedItem(item)}
+                      className="flex w-full cursor-pointer items-center justify-between gap-3 px-6 py-3 text-left"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-dl-foreground">
+                          {item.purpose}
+                        </p>
+                        <p
+                          className={cn(
+                            "mt-0.5 text-xs tabular-nums",
+                            item.category === "INCOME"
+                              ? "text-emerald-700"
+                              : "text-rose-700",
+                          )}
+                        >
+                          {formatCurrency(item.totalAmount)}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-dl-muted" />
+                    </button>
+                  ))
+                )}
+              </div>
+
+              <Dialog
+                open={!!selectedItem}
+                onOpenChange={(open) => !open && setSelectedItem(null)}
+              >
+                <DialogContent className="bg-white">
+                  {selectedItem && (
+                    <>
+                      <DialogHeader className="text-left">
+                        <DialogTitle className="pr-6 text-base text-dl-foreground">
+                          {selectedItem.purpose}
+                        </DialogTitle>
+                        <DialogDescription className="sr-only">
+                          Detail transaksi
+                        </DialogDescription>
+                      </DialogHeader>
+                      <dl className="space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between gap-3">
+                          <dt className="text-dl-muted">ID Transaksi</dt>
+                          <dd className="text-dl-foreground">
+                            {selectedItem.trxId}
+                          </dd>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <dt className="text-dl-muted">Kategori</dt>
+                          <dd
                             className={cn(
-                              "mt-0.5 text-xs tabular-nums",
-                              item.category === "INCOME"
+                              "font-medium",
+                              selectedItem.category === "INCOME"
                                 ? "text-emerald-700"
                                 : "text-rose-700",
                             )}
                           >
-                            {formatCurrency(item.totalAmount)}
-                          </p>
+                            {selectedItem.category === "INCOME"
+                              ? "Pemasukan"
+                              : "Pengeluaran"}
+                          </dd>
                         </div>
-                        <ChevronDown className="h-4 w-4 shrink-0 text-dl-muted transition-transform group-open:rotate-180" />
-                      </summary>
-                      <div className="px-6 pb-3">
-                        <dl className="space-y-1.5 text-xs">
-                          <div className="flex items-center justify-between gap-3">
-                            <dt className="text-dl-muted">ID Transaksi</dt>
-                            <dd className="text-dl-foreground">{item.trxId}</dd>
-                          </div>
-                          <div className="flex items-center justify-between gap-3">
-                            <dt className="text-dl-muted">Kategori</dt>
-                            <dd
-                              className={cn(
-                                "font-medium",
-                                item.category === "INCOME"
-                                  ? "text-emerald-700"
-                                  : "text-rose-700",
-                              )}
-                            >
-                              {item.category === "INCOME"
-                                ? "Pemasukan"
-                                : "Pengeluaran"}
-                            </dd>
-                          </div>
-                          {item.details.length > 0 && (
-                            <div className="space-y-1 border-t border-dl-border pt-1.5">
-                              <p className="text-dl-muted">Rincian</p>
-                              {item.details.map((detail) => (
+                        <div className="flex items-center justify-between gap-3">
+                          <dt className="text-dl-muted">Tanggal Transaksi</dt>
+                          <dd className="text-dl-foreground">
+                            {formatDateWithTime(
+                              selectedItem.trxDate.toISOString(),
+                            )}
+                          </dd>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <dt className="text-dl-muted">Dibuat</dt>
+                          <dd className="text-dl-foreground">
+                            {formatDateWithTime(
+                              selectedItem.createdAt.toISOString(),
+                            )}
+                          </dd>
+                        </div>
+                      </dl>
+
+                      <div className="space-y-1.5">
+                        {selectedItem.details.length > 0 && (
+                          <div className="rounded-lg bg-dl-background p-1.5">
+                            <p className="mb-1 px-1.5 text-[10px] text-dl-muted">
+                              Rincian
+                            </p>
+                            <div className="space-y-1">
+                              {selectedItem.details.map((detail) => (
                                 <div
                                   key={detail.id}
-                                  className="flex items-center justify-between gap-3 pl-2"
+                                  className="flex items-center gap-2 rounded-md bg-white px-2 py-1"
                                 >
-                                  <span className="truncate text-dl-foreground">
+                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-dl-primary/10 text-xs text-dl-primary">
+                                    <PiTag />
+                                  </div>
+                                  <p className="min-w-0 flex-1 text-[11px] font-semibold break-words text-dl-foreground">
                                     {detail.name}
-                                  </span>
-                                  <span className="tabular-nums text-dl-foreground">
+                                  </p>
+                                  <p className="shrink-0 text-[11px] font-bold tabular-nums text-dl-foreground">
                                     {formatCurrency(detail.amount)}
-                                  </span>
+                                  </p>
                                 </div>
                               ))}
                             </div>
-                          )}
-                          <div className="flex items-center justify-between gap-3">
-                            <dt className="text-dl-muted">Tanggal Transaksi</dt>
-                            <dd className="text-dl-foreground">
-                              {formatDateWithTime(item.trxDate.toISOString())}
-                            </dd>
                           </div>
-                          <div className="flex items-center justify-between gap-3">
-                            <dt className="text-dl-muted">Dibuat</dt>
-                            <dd className="text-dl-foreground">
-                              {formatDateWithTime(item.createdAt.toISOString())}
-                            </dd>
-                          </div>
-                        </dl>
-                        <TransactionActions item={item} variant="list" />
+                        )}
+
+                        <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2">
+                          <span className="flex items-center gap-1 text-xs font-bold text-emerald-700">
+                            <PiCalculator className="h-3.5 w-3.5" />
+                            <span>Total</span>
+                          </span>
+                          <span className="text-sm font-extrabold text-emerald-700">
+                            {formatCurrency(selectedItem.totalAmount)}
+                          </span>
+                        </div>
                       </div>
-                    </details>
-                  ))
-                )}
-              </div>
+                      <TransactionActions item={selectedItem} variant="list" />
+                    </>
+                  )}
+                </DialogContent>
+              </Dialog>
             </>
           )}
 
