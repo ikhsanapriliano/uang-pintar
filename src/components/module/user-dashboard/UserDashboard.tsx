@@ -615,7 +615,7 @@ const UserDashboard = () => {
                       <TableHead className="min-w-[300px] max-w-[300px] px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
                         Keterangan
                       </TableHead>
-                      <TableHead className="min-w-[300px] max-w-[300px] px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
+                      <TableHead className="px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
                         Rincian
                       </TableHead>
                       <TableHead className="px-4 text-xs font-semibold tracking-wide text-dl-muted uppercase">
@@ -654,23 +654,16 @@ const UserDashboard = () => {
                           <TableCell className="min-w-[300px] max-w-[300px] px-4 py-3 font-medium break-words whitespace-normal text-dl-foreground">
                             {item.purpose}
                           </TableCell>
-                          <TableCell className="min-w-[300px] max-w-[300px] px-4 py-3 align-top">
+                          <TableCell className="px-4 py-3 align-top">
                             {item.details.length > 0 ? (
-                              <ul className="space-y-0.5 text-xs text-dl-muted">
-                                {item.details.map((detail) => (
-                                  <li
-                                    key={detail.id}
-                                    className="flex items-center justify-between gap-2"
-                                  >
-                                    <span className="truncate">
-                                      {detail.name}
-                                    </span>
-                                    <span className="tabular-nums">
-                                      {formatCurrency(detail.amount)}
-                                    </span>
-                                  </li>
-                                ))}
-                              </ul>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-dl-foreground"
+                                onClick={() => setSelectedItem(item)}
+                              >
+                                Lihat Rincian
+                              </Button>
                             ) : (
                               <span className="text-xs text-dl-muted">-</span>
                             )}
@@ -816,7 +809,14 @@ const UserDashboard = () => {
                                   key={detail.id}
                                   className="flex items-center gap-2 rounded-md bg-white px-2 py-1"
                                 >
-                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-dl-primary/10 text-xs text-dl-primary">
+                                  <div
+                                    className={cn(
+                                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs",
+                                      selectedItem.category === "INCOME"
+                                        ? "bg-emerald-50 text-emerald-700"
+                                        : "bg-rose-50 text-rose-700",
+                                    )}
+                                  >
                                     <PiTag />
                                   </div>
                                   <p className="min-w-0 flex-1 text-[11px] font-semibold break-words text-dl-foreground">
@@ -831,12 +831,33 @@ const UserDashboard = () => {
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2">
-                          <span className="flex items-center gap-1 text-xs font-bold text-emerald-700">
+                        <div
+                          className={cn(
+                            "flex items-center justify-between rounded-lg px-3 py-2",
+                            selectedItem.category === "INCOME"
+                              ? "bg-emerald-50"
+                              : "bg-rose-50",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "flex items-center gap-1 text-xs font-bold",
+                              selectedItem.category === "INCOME"
+                                ? "text-emerald-700"
+                                : "text-rose-700",
+                            )}
+                          >
                             <PiCalculator className="h-3.5 w-3.5" />
                             <span>Total</span>
                           </span>
-                          <span className="text-sm font-extrabold text-emerald-700">
+                          <span
+                            className={cn(
+                              "text-sm font-extrabold",
+                              selectedItem.category === "INCOME"
+                                ? "text-emerald-700"
+                                : "text-rose-700",
+                            )}
+                          >
                             {formatCurrency(selectedItem.totalAmount)}
                           </span>
                         </div>

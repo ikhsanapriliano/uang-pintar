@@ -237,33 +237,40 @@ const DraftEditModal = ({ draft, onClose, onSave }: DraftEditModalProps) => {
 
           <div className="space-y-2">
             {details.map((detail, index) => (
-              <div key={index} className="flex items-start gap-2">
+              <div
+                key={index}
+                className="flex flex-col gap-2 rounded-lg border border-dl-border p-3 sm:flex-row sm:items-start sm:gap-2 sm:rounded-none sm:border-0 sm:p-0"
+              >
                 <Input
                   placeholder="Nama rincian"
-                  className="flex-1 bg-white"
+                  className="w-full bg-white sm:flex-1"
                   value={detail.name}
                   onChange={(e) =>
                     updateDetail(index, { name: e.target.value })
                   }
                 />
-                <div className="w-36">
-                  <InputMoney
-                    placeholder="50000"
-                    value={detail.amount}
-                    onChange={(v: string) => updateDetail(index, { amount: v })}
-                  />
+                <div className="flex items-start gap-2 sm:contents">
+                  <div className="flex-1 sm:w-40 sm:flex-none">
+                    <InputMoney
+                      placeholder="50000"
+                      value={detail.amount}
+                      onChange={(v: string) =>
+                        updateDetail(index, { amount: v })
+                      }
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={details.length === 1}
+                    onClick={() => removeDetail(index)}
+                    aria-label="Hapus rincian"
+                    className="mt-0.5 shrink-0 text-dl-muted hover:bg-dl-error/10 hover:text-dl-error"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  disabled={details.length === 1}
-                  onClick={() => removeDetail(index)}
-                  aria-label="Hapus rincian"
-                  className="mt-0.5 shrink-0 text-dl-muted hover:bg-dl-error/10 hover:text-dl-error"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
               </div>
             ))}
             <Button
@@ -413,7 +420,14 @@ const TransactionCard = ({
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-dl-primary/10 text-sm text-dl-primary">
+          <div
+            className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm",
+              isIncome
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-rose-50 text-rose-700",
+            )}
+          >
             <PiReceipt />
           </div>
           <div className="min-w-0">
@@ -452,7 +466,14 @@ const TransactionCard = ({
                   key={index}
                   className="flex items-center gap-2 rounded-md bg-white px-2 py-1"
                 >
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-dl-primary/10 text-xs text-dl-primary">
+                  <div
+                    className={cn(
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs",
+                      isIncome
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-rose-50 text-rose-700",
+                    )}
+                  >
                     <DETAIL_ICON />
                   </div>
                   <p className="min-w-0 flex-1 text-[11px] font-semibold break-words text-dl-foreground">
@@ -466,12 +487,27 @@ const TransactionCard = ({
             </div>
           </div>
 
-          <div className="mt-1.5 flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2">
-            <span className="flex items-center gap-1 text-xs font-bold text-emerald-700">
+          <div
+            className={cn(
+              "mt-1.5 flex items-center justify-between rounded-lg px-3 py-2",
+              isIncome ? "bg-emerald-50" : "bg-rose-50",
+            )}
+          >
+            <span
+              className={cn(
+                "flex items-center gap-1 text-xs font-bold",
+                isIncome ? "text-emerald-700" : "text-rose-700",
+              )}
+            >
               <PiCalculator className="h-3.5 w-3.5" />
               <span>Total</span>
             </span>
-            <span className="text-sm font-extrabold text-emerald-700">
+            <span
+              className={cn(
+                "text-sm font-extrabold",
+                isIncome ? "text-emerald-700" : "text-rose-700",
+              )}
+            >
               {formatCurrency(total)}
             </span>
           </div>

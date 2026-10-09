@@ -264,12 +264,15 @@ const TransactionActions = ({ item, variant = "icon" }: Props) => {
                 <FormLabel>Rincian</FormLabel>
                 <div className="space-y-2">
                   {fields.map((detail, index) => (
-                    <div key={detail.id} className="flex items-start gap-2">
+                    <div
+                      key={detail.id}
+                      className="flex flex-col gap-2 rounded-lg border border-dl-border p-3 sm:flex-row sm:items-start sm:gap-2 sm:rounded-none sm:border-0 sm:p-0"
+                    >
                       <FormField
                         control={form.control}
                         name={`details.${index}.name`}
                         render={({ field }) => (
-                          <FormItem className="flex-1">
+                          <FormItem className="w-full sm:flex-1">
                             <FormControl>
                               <Input
                                 placeholder="Nama rincian"
@@ -281,33 +284,35 @@ const TransactionActions = ({ item, variant = "icon" }: Props) => {
                           </FormItem>
                         )}
                       />
-                      <FormField
-                        control={form.control}
-                        name={`details.${index}.amount`}
-                        render={({ field }) => (
-                          <FormItem className="w-36 sm:w-40">
-                            <FormControl>
-                              <InputMoney
-                                placeholder="50.000"
-                                value={field.value}
-                                onChange={(e: any) => field.onChange(e)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        disabled={fields.length === 1}
-                        onClick={() => remove(index)}
-                        aria-label="Hapus rincian"
-                        className="mt-0.5 shrink-0 text-dl-muted hover:bg-dl-error/10 hover:text-dl-error"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-start gap-2 sm:contents">
+                        <FormField
+                          control={form.control}
+                          name={`details.${index}.amount`}
+                          render={({ field }) => (
+                            <FormItem className="flex-1 sm:w-40 sm:flex-none">
+                              <FormControl>
+                                <InputMoney
+                                  placeholder="50.000"
+                                  value={field.value}
+                                  onChange={(e: any) => field.onChange(e)}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          disabled={fields.length === 1}
+                          onClick={() => remove(index)}
+                          aria-label="Hapus rincian"
+                          className="mt-0.5 shrink-0 text-dl-muted hover:bg-dl-error/10 hover:text-dl-error"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                   <Button
