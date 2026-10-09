@@ -31,6 +31,7 @@ export const transactionFilterSchema = paginationSchema.extend({
   category: z.enum(["INCOME", "EXPENSE"]).optional().nullable(),
   start_date: z.date().optional().nullable(),
   end_date: z.date().optional().nullable(),
+  date_type: z.enum(["trx", "created"]).optional().nullable(),
 });
 
 export type TransactionFilterSchema = z.infer<typeof transactionFilterSchema>;

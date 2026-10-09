@@ -35,6 +35,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -56,12 +57,14 @@ import {
   ChevronRight,
   Loader2,
   History,
+  FileSpreadsheet,
 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { useDebounced } from "@/lib/debounced";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { PiCalculator, PiTag } from "react-icons/pi";
+import { toastError, toastSuccess } from "@/lib/toast";
 import TransactionActions from "./TransactionActions";
 
 const FILTER_MODES = [
@@ -90,6 +93,13 @@ const MONTHS = [
 const CURRENT_YEAR = new Date().getFullYear();
 const CURRENT_MONTH = { year: CURRENT_YEAR, month: new Date().getMonth() };
 const YEARS = Array.from({ length: 11 }, (_, i) => CURRENT_YEAR - i);
+
+const toDateInput = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
 
 type DateFilterContentProps = {
   filterMode: FilterMode;
@@ -269,6 +279,20 @@ const UserDashboard = () => {
   const [selectedItem, setSelectedItem] = useState<
     (Transaction & { details: TransactionDetail[] }) | null
   >(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportCategory, setExportCategory] = useState<
+    "ALL" | "INCOME" | "EXPENSE"
+  >("ALL");
+  const [exportDateType, setExportDateType] = useState<"trx" | "created">(
+    "trx",
+  );
+  const [exportFrom, setExportFrom] = useState<Date | undefined>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [exportTo, setExportTo] = useState<Date | undefined>(() => new Date());
+  const [exporting, setExporting] = useState(false);
+  const utils = api.useUtils();
   const search = useDebounced(searchInput);
 
   useEffect(() => {
@@ -345,6 +369,86 @@ const UserDashboard = () => {
     setCalendarOpen(false);
     setSheetOpen(false);
     setFilterMode("month");
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const start = exportFrom ? new Date(exportFrom) : undefined;
+      start?.setHours(0, 0, 0, 0);
+      const end = exportTo ? new Date(exportTo) : undefined;
+      end?.setHours(23, 59, 59, 999);
+
+      const result = await utils.transaction.findAll.fetch({
+        page: 1,
+        limit: 100000,
+        category: exportCategory === "ALL" ? undefined : exportCategory,
+        start_date: start,
+        end_date: end,
+        date_type: exportDateType,
+      });
+
+      if (result.items.length === 0) {
+        toastError(
+          "Tidak ada data",
+          "Tidak ada transaksi pada filter tersebut",
+        );
+        return;
+      }
+
+      const rows: Record<string, string | number>[] = [];
+      const merges: {
+        s: { r: number; c: number };
+        e: { r: number; c: number };
+      }[] = [];
+      let rowIndex = 1;
+      for (const trx of result.items) {
+        const details = trx.details.length > 0 ? trx.details : [null];
+        const startRow = rowIndex;
+        for (const detail of details) {
+          rows.push({
+            "ID Transaksi": trx.trxId,
+            Keterangan: trx.purpose,
+            Kategori: trx.category === "INCOME" ? "Pemasukan" : "Pengeluaran",
+            Rincian: detail ? detail.name : "-",
+            Nominal: detail ? detail.amount : trx.totalAmount,
+            "Tanggal Transaksi": formatDateWithTime(trx.trxDate.toISOString()),
+            "Tanggal Pencatatan": formatDateWithTime(
+              trx.createdAt.toISOString(),
+            ),
+          });
+          rowIndex++;
+        }
+        if (details.length > 1) {
+          const endRow = rowIndex - 1;
+          for (const c of [0, 1, 2, 5, 6]) {
+            merges.push({ s: { r: startRow, c }, e: { r: endRow, c } });
+          }
+        }
+      }
+
+      const XLSX = await import("xlsx");
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      worksheet["!merges"] = merges;
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Transaksi");
+      XLSX.writeFile(
+        workbook,
+        `transaksi-${exportFrom ? toDateInput(exportFrom) : "awal"}-${
+          exportTo ? toDateInput(exportTo) : "akhir"
+        }.xlsx`,
+      );
+
+      toastSuccess("Berhasil!", "Data transaksi berhasil diexport");
+      setExportOpen(false);
+    } catch (error) {
+      toastError(
+        "Gagal!",
+        error instanceof Error ? error.message : "Gagal export data",
+      );
+    } finally {
+      setExporting(false);
+    }
   };
 
   const summaryCards = (
@@ -582,10 +686,21 @@ const UserDashboard = () => {
 
       <Card className="gap-0">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base font-semibold text-dl-foreground">
-            <History className="h-4 w-4 text-dl-primary" />
-            Riwayat Transaksi
-          </CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold text-dl-foreground">
+              <History className="h-4 w-4 text-dl-primary" />
+              Riwayat Transaksi
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setExportOpen(true)}
+              className="gap-2 border-dl-border text-xs font-medium text-dl-foreground"
+            >
+              <FileSpreadsheet className="h-4 w-4 text-dl-primary" />
+              Export Excel
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-0 md:p-0">
           <div className="border-b border-dl-border px-4 pt-2 pb-4 sm:px-6">
@@ -929,6 +1044,146 @@ const UserDashboard = () => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-dl-foreground">
+              Export Excel
+            </DialogTitle>
+            <DialogDescription>
+              Atur kategori dan rentang tanggal transaksi yang akan diexport
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-dl-foreground">
+                Kategori
+              </label>
+              <Select
+                value={exportCategory}
+                onValueChange={(value) =>
+                  setExportCategory(value as "ALL" | "INCOME" | "EXPENSE")
+                }
+              >
+                <SelectTrigger className="w-full cursor-pointer bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  <SelectItem value="ALL" className="cursor-pointer">
+                    Semua Kategori
+                  </SelectItem>
+                  <SelectItem value="INCOME" className="cursor-pointer">
+                    Pemasukan
+                  </SelectItem>
+                  <SelectItem value="EXPENSE" className="cursor-pointer">
+                    Pengeluaran
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-dl-foreground">
+                Tipe Tanggal
+              </label>
+              <Select
+                value={exportDateType}
+                onValueChange={(value) =>
+                  setExportDateType(value as "trx" | "created")
+                }
+              >
+                <SelectTrigger className="w-full cursor-pointer bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  <SelectItem value="trx" className="cursor-pointer">
+                    Tanggal Transaksi
+                  </SelectItem>
+                  <SelectItem value="created" className="cursor-pointer">
+                    Tanggal Pencatatan
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-dl-foreground">
+                  Dari Tanggal
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start gap-2 border-dl-border bg-white text-left font-normal text-dl-foreground"
+                    >
+                      <CalendarDays className="h-4 w-4 text-dl-primary" />
+                      {exportFrom
+                        ? formatDate(exportFrom.toISOString())
+                        : "Pilih tanggal"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-auto bg-white p-0">
+                    <Calendar
+                      mode="single"
+                      selected={exportFrom}
+                      onSelect={setExportFrom}
+                      className="bg-white"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-dl-foreground">
+                  Sampai Tanggal
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start gap-2 border-dl-border bg-white text-left font-normal text-dl-foreground"
+                    >
+                      <CalendarDays className="h-4 w-4 text-dl-primary" />
+                      {exportTo
+                        ? formatDate(exportTo.toISOString())
+                        : "Pilih tanggal"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-auto bg-white p-0">
+                    <Calendar
+                      mode="single"
+                      selected={exportTo}
+                      onSelect={setExportTo}
+                      className="bg-white"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportOpen(false)}>
+              Batal
+            </Button>
+            <Button
+              onClick={handleExport}
+              disabled={exporting}
+              className="bg-gradient-to-r from-dl-gradient-2 to-dl-primary text-white"
+            >
+              {exporting ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  Mengexport...
+                </>
+              ) : (
+                <>
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Export
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

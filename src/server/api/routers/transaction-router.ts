@@ -34,12 +34,15 @@ export const transactionRouter = createTRPCRouter({
   findAll: protectedProcedure
     .input(transactionFilterSchema)
     .query(async ({ input, ctx }) => {
+      const dateFilter = {
+        ...(input.start_date ? { gte: input.start_date } : {}),
+        ...(input.end_date ? { lte: input.end_date } : {}),
+      };
       const where = {
         userId: ctx.session.userId,
-        trxDate: {
-          ...(input.start_date ? { gte: input.start_date } : {}),
-          ...(input.end_date ? { lte: input.end_date } : {}),
-        },
+        ...(input.date_type === "created"
+          ? { createdAt: dateFilter }
+          : { trxDate: dateFilter }),
         ...(input.search
           ? {
               OR: [
