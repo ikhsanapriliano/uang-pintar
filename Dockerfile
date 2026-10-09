@@ -5,7 +5,7 @@ WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm install --force --ignore-scripts
+RUN npm install --ignore-scripts
 
 ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 
