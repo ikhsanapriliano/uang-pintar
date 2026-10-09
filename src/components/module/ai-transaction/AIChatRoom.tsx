@@ -111,10 +111,29 @@ const draftDate = (data: Partial<TAIResponse>): Date | null => {
   return isNaN(date.getTime()) ? null : date;
 };
 
+const toAmount = (value: string | number | null | undefined) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  return Number(String(value ?? "").replace(/\D/g, "")) || 0;
+};
+
+const normalizeCategory = (value: unknown): "INCOME" | "EXPENSE" | null => {
+  if (typeof value !== "string") return null;
+  const v = value.trim().toUpperCase();
+  if (v === "INCOME" || v === "EXPENSE") return v;
+  if (v === "PEMASUKAN" || v === "MASUK") return "INCOME";
+  if (v === "PENGELUARAN" || v === "KELUAR") return "EXPENSE";
+  return null;
+};
+
+const getValidDetails = (data: Partial<TAIResponse>) =>
+  (data.details ?? [])
+    .map((d) => ({ name: (d.name ?? "").trim(), amount: toAmount(d.amount) }))
+    .filter((d) => d.name.length > 0 && d.amount > 0);
+
 const isComplete = (data: Partial<TAIResponse>) =>
-  !!data.category &&
-  !!data.purpose &&
-  !!data.details?.some((d) => Number(d.amount) > 0);
+  normalizeCategory(data.category) !== null &&
+  !!data.purpose?.trim() &&
+  getValidDetails(data).length > 0;
 
 const snapshotDraft = (draft: TransactionDraft): TransactionDraft => ({
   ...draft,
@@ -405,11 +424,12 @@ const TransactionCard = ({
   onSave,
   onEdit,
 }: TransactionCardProps) => {
-  const isIncome = draft.category === "INCOME";
+  const category = normalizeCategory(draft.category);
+  const isIncome = category === "INCOME";
   const details = (draft.details ?? []).filter(
     (d) => d.name || d.amount != null,
   );
-  const total = details.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const total = details.reduce((sum, d) => sum + toAmount(d.amount), 0);
   const date = draftDate(draft);
 
   return (
@@ -451,7 +471,7 @@ const TransactionCard = ({
             <TrendingDown className="h-3 w-3 shrink-0" />
           )}
           <span className="break-words whitespace-normal">
-            {draft.category ? (isIncome ? "Pemasukan" : "Pengeluaran") : "-"}
+            {category ? (isIncome ? "Pemasukan" : "Pengeluaran") : "-"}
           </span>
         </span>
       </div>
@@ -480,7 +500,7 @@ const TransactionCard = ({
                     {detail.name || "-"}
                   </p>
                   <p className="shrink-0 text-[11px] font-bold tabular-nums text-dl-foreground">
-                    {formatCurrency(Number(detail.amount) || 0)}
+                    {formatCurrency(toAmount(detail.amount))}
                   </p>
                 </div>
               ))}
@@ -844,15 +864,21 @@ const AIChatRoom = () => {
   const remainingVoice = Math.max(MAX_VOICE_SECONDS - usedVoiceSeconds, 0);
   const voiceExhausted = remainingVoice <= 0;
 
-  const saveDraft = () =>
+  const saveDraft = () => {
+    const category = normalizeCategory(aiResponseRef.current.category);
+    const purpose = aiResponseRef.current.purpose?.trim();
+    const details = getValidDetails(aiResponseRef.current);
+    if (!category || !purpose || details.length === 0) {
+      toastError("Gagal!", "Data transaksi belum lengkap atau tidak valid");
+      return;
+    }
     createTransaction.mutate({
-      category: aiResponseRef.current.category! as "INCOME" | "EXPENSE",
-      purpose: aiResponseRef.current.purpose!,
-      details: (aiResponseRef.current.details ?? [])
-        .filter((d) => d.name && Number(d.amount) > 0)
-        .map((d) => ({ name: d.name!, amount: d.amount! })),
+      category,
+      purpose,
+      details,
       trx_date: draftDate(aiResponseRef.current) ?? new Date(),
     });
+  };
 
   const send = () => {
     const content = input.trim();
