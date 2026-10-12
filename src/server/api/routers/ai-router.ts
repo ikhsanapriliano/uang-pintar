@@ -1,12 +1,17 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import type { Prisma, PrismaClient } from "@prisma/client";
-import type {
-  TAIChatCompletionUsage,
-  TAIReplyIntent,
-  TAIResponse,
-} from "@/server/api/types/ai-type";
+import type { Prisma } from "@prisma/client";
+import {
+  CLASSIFY_MODEL,
+  CLASSIFY_PROMPT,
+  SYSTEM_PROMPT,
+  chatCompletion,
+  draftSummary,
+  getOrCreateOpenSession,
+  parseAIReplyIntent,
+  parseAIResponse,
+} from "@/server/services/ai-service";
 
 const draftDetailSchema = z.object({
   name: z.string().nullable().optional(),
@@ -51,108 +56,6 @@ const sessionFilterSchema = z.object({
   startDate: z.date().optional().nullable(),
   endDate: z.date().optional().nullable(),
 });
-
-const wib = new Date().toLocaleString("sv-SE", {
-  timeZone: "Asia/Jakarta",
-});
-
-const SYSTEM_PROMPT = `Waktu: ${wib} (WIB). Ubah transaksi menjadi JSON saja:
-{"category":"INCOME"|"EXPENSE"|null,"purpose":string|null,"details":[{"name":string,"amount":number}],"trxDate":"YYYY-MM-DD"|null,"trxTime":"HH:mm"|null}
-INCOME=masuk, EXPENSE=keluar. details berisi rincian item (nama + nominal), null jika tak disebut. amount angka tanpa format (50000). Waktu relatif ke sekarang.`;
-
-const CLASSIFY_PROMPT = `Tentukan intent balasan atas transaksi tertunda. Balas HANYA JSON:
-{"intent":"SAVE"} jika setuju menyimpan tanpa maksud lain.
-{"intent":"CONVERSATION"} untuk info baru, koreksi, pertanyaan, penolakan, atau lainnya. Ragu -> CONVERSATION.`;
-
-const CLASSIFY_MODEL = "xiaomi/mimo-v2.6-flash";
-
-const draftSummary = (draft: {
-  category?: string | null;
-  purpose?: string | null;
-  details?: { name?: string | null; amount?: string | number | null }[] | null;
-}) =>
-  [
-    `Kategori: ${
-      draft.category === "INCOME"
-        ? "Pemasukan"
-        : draft.category === "EXPENSE"
-          ? "Pengeluaran"
-          : "-"
-    }`,
-    `Keterangan: ${draft.purpose ?? "-"}`,
-    `Rincian:`,
-    ...(draft.details && draft.details.length > 0
-      ? draft.details.map((d) => `- ${d.name ?? "-"}: ${d.amount ?? "-"}`)
-      : ["-"]),
-  ].join("\n");
-
-const chatCompletion = async (
-  messages: { role: "system" | "user"; content: string }[],
-  model = "xiaomi/mimo-v2.6-flash",
-  maxTokens = 200,
-) => {
-  const apiKey = process.env.OPENROUTER;
-  if (!apiKey) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-
-  let res: Response;
-  try {
-    res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        response_format: { type: "json_object" },
-        max_tokens: maxTokens,
-        temperature: 0.2,
-        reasoning: { effort: "none" },
-      }),
-    });
-  } catch {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Gagal terhubung ke layanan AI",
-    });
-  }
-
-  if (!res.ok) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: `Layanan AI error: ${res.status}`,
-    });
-  }
-
-  const data = (await res.json()) as {
-    choices?: { message?: { content?: string } }[];
-    usage?: TAIChatCompletionUsage;
-  };
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-
-  return { content, usage: data.usage ?? null };
-};
-
-const getOrCreateOpenSession = async (
-  db: PrismaClient,
-  userId: string | undefined,
-) => {
-  if (!userId) throw new TRPCError({ code: "UNAUTHORIZED" });
-  const existing = await db.aIChatSession.findFirst({
-    where: { userId, status: "OPEN" },
-    include: {
-      details: { orderBy: { createdAt: "asc" } },
-      transcriptions: { orderBy: { createdAt: "asc" } },
-    },
-  });
-  if (existing) return existing;
-  return db.aIChatSession.create({
-    data: { userId },
-    include: { details: true, transcriptions: true },
-  });
-};
 
 export const aiRouter = createTRPCRouter({
   getOrCreateSession: protectedProcedure.mutation(async ({ ctx }) => {
@@ -200,15 +103,7 @@ export const aiRouter = createTRPCRouter({
         "xiaomi/mimo-v2.6-flash",
       );
 
-      let parsed: TAIResponse;
-      try {
-        parsed = JSON.parse(content) as TAIResponse;
-      } catch {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Respons AI tidak valid",
-        });
-      }
+      const parsed = parseAIResponse(content);
 
       await ctx.db.aIChatSessionDetail.create({
         data: {
@@ -245,13 +140,7 @@ export const aiRouter = createTRPCRouter({
         CLASSIFY_MODEL,
       );
 
-      let intent: TAIReplyIntent = "CONVERSATION";
-      try {
-        const parsed = JSON.parse(content) as { intent?: string };
-        if (parsed.intent === "SAVE") intent = "SAVE";
-      } catch {
-        intent = "CONVERSATION";
-      }
+      const intent = parseAIReplyIntent(content);
 
       const session = await getOrCreateOpenSession(ctx.db, ctx.session.userId);
       await ctx.db.aIChatSessionDetail.create({
